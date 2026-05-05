@@ -85,88 +85,118 @@ export default function Login() {
       <div className="login-bg-texture" />
       <ParticleCanvas />
       
-      <div className="login-container">
-        <form className="login-card" onSubmit={handleSubmit}>
-          
-          {/* Logo Section */}
-          <div className="login-branding">
-            <div className="brand-logo-ring">
-              <div className="brand-logo">
-                <img src="/logo.png" alt="KEC Logo" />
+      <div className="login-layout">
+        {/* Left Panel: The Form */}
+        <div className="login-panel-form">
+          <form className="login-card" onSubmit={handleSubmit}>
+            
+            <div className="login-branding">
+              <div className="brand-logo-ring">
+                <div className="brand-logo">
+                  <img src="/logo.png" alt="KEC Logo" />
+                </div>
               </div>
-            </div>
-            <h1 className="brand-name">KEC PORTAL</h1>
-            <div className="brand-divider" />
-            <p className="brand-tagline">EXAMINATION MANAGEMENT SYSTEM</p>
-          </div>
-
-          {/* Role Selector */}
-          <div className="role-selector">
-            {ROLES.map(r => (
-              <button
-                key={r} type="button"
-                className={`role-btn${role === r ? ' active' : ''}`}
-                onClick={() => { setRole(r); setError('') }}
-              >
-                {r.toUpperCase()}
-              </button>
-            ))}
-          </div>
-
-          {/* Inputs */}
-          <div className="login-fields">
-            <div className="login-field-group">
-              <label>{meta.label}</label>
-              <input
-                type="text"
-                value={username}
-                onChange={e => setUsername(e.target.value)}
-                required autoFocus
-              />
+              <h1 className="brand-name">KEC PORTAL</h1>
+              <div className="brand-divider" />
+              <p className="brand-tagline">EXAMINATION MANAGEMENT SYSTEM</p>
             </div>
 
-            <div className="login-field-group">
-              <label>PASSWORD</label>
-              <div className="login-input-wrap">
-                <input
-                  type={showPwd ? 'text' : 'password'}
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  required
-                />
+            <div className="role-selector">
+              {ROLES.map(r => (
                 <button
-                  type="button"
-                  className="login-pwd-toggle"
-                  onClick={() => setShowPwd(s => !s)}
-                  tabIndex={-1}
+                  key={r} type="button"
+                  className={`role-btn${role === r ? ' active' : ''}`}
+                  onClick={() => { setRole(r); setError('') }}
                 >
-                  {showPwd ? (
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
-                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>
-                    </svg>
-                  ) : (
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-                    </svg>
-                  )}
+                  {r.toUpperCase()}
                 </button>
+              ))}
+            </div>
+
+            <div className="login-fields">
+              <div className="login-field-group">
+                <label>{meta.label}</label>
+                <input
+                  type="text"
+                  value={username}
+                  onChange={e => setUsername(e.target.value)}
+                  placeholder={`Enter ${meta.label.toLowerCase()}`}
+                  required autoFocus
+                />
+              </div>
+
+              <div className="login-field-group">
+                <label>PASSWORD</label>
+                <div className="login-input-wrap">
+                  <input
+                    type={showPwd ? 'text' : 'password'}
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="login-pwd-toggle"
+                    onClick={() => setShowPwd(s => !s)}
+                    tabIndex={-1}
+                  >
+                    {showPwd ? (
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
+                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>
+                      </svg>
+                    ) : (
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {error && <div className="login-error-msg">⚠ {error}</div>}
+
+            <button type="submit" className="login-submit-btn" disabled={loading}>
+              {loading ? <span className="login-btn-spinner" /> : <>SIGN IN <span>→</span></>}
+            </button>
+
+            <div className="login-card-footer">
+              <a href="#">FORGOT PASSWORD?</a>
+              <a href="#">HELP & SUPPORT</a>
+            </div>
+          </form>
+        </div>
+
+        {/* Right Panel: Visual Showcase */}
+        <div className="login-panel-visual">
+          <div className="visual-overlay" />
+          <div className="visual-content">
+            <h2 className="visual-title">KINGS <br/><span>ENGINEERING COLLEGE</span></h2>
+            <div className="visual-divider" />
+            <p className="visual-desc">
+              Empowering the next generation of engineers with state-of-the-art 
+              examination and academic management infrastructure.
+            </p>
+            <div className="visual-stats">
+              <div className="stat-item">
+                <span className="stat-num">2000+</span>
+                <span className="stat-lbl">STUDENTS</span>
+              </div>
+              <div className="stat-item">
+                <span className="stat-num">100+</span>
+                <span className="stat-lbl">FACULTY</span>
+              </div>
+              <div className="stat-item">
+                <span className="stat-num">15+</span>
+                <span className="stat-lbl">DEPARTMENTS</span>
               </div>
             </div>
           </div>
-
-          {error && <div className="login-error-msg">⚠ {error}</div>}
-
-          {/* Sign In Button */}
-          <button type="submit" className="login-submit-btn" disabled={loading}>
-            {loading ? <span className="login-btn-spinner" /> : <>SIGN IN <span>→</span></>}
-          </button>
-
-          {/* Footer Links */}
-          <div className="login-card-footer">
-            <a href="#">FORGOT PASSWORD?</a>
-            <a href="#">HELP & SUPPORT</a>
+          <div className="visual-footer">
+            © 2026 KEC Portal. All rights reserved.
           </div>
-        </form>
+        </div>
       </div>
     </div>
   )

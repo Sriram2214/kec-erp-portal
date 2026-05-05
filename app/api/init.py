@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify
 from app import db
-from app.models import User, Degree, Department, Regulation, AcademicYear, Batch
+from app.models import User, Degree, Department, Regulation, AcademicYear, Batch, Student, Course
 
 init_bp = Blueprint('init_db', __name__)
 
@@ -80,14 +80,13 @@ def init_db():
             depts = ['AI&DS', 'AIML', 'BME', 'CSE', 'ECE', 'IT', 'MECH', 'RAA']
             dept_map = {'AI&DS':'AD', 'AIML':'AM', 'BME':'BM', 'CSE':'CS', 'ECE':'EC', 'IT':'IT', 'MECH':'ME', 'RAA':'RA'}
             
-            students_to_add = []
-            for i in range(1, 301):
+            for i in range(1, 151):
                 dept = random.choice(depts)
                 dept_code = '21' + dept_map[dept]
                 reg_no = f"{dept_code}{str(i).zfill(3)}"
                 name = f"{random.choice(first_names)} {random.choice(last_names)}"
                 
-                students_to_add.append(Student(
+                db.session.add(Student(
                     register_number=reg_no,
                     name=name,
                     department=dept,
@@ -99,7 +98,6 @@ def init_db():
                     email=f"stu{i}@kec.ac.in",
                     phone=f"98{str(random.randint(10000000, 99999999))}"
                 ))
-            db.session.bulk_save_objects(students_to_add)
 
         db.session.commit()
         return jsonify({

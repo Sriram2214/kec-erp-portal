@@ -14,7 +14,8 @@
 .login-root {
   position: fixed;
   inset: 0;
-  background: #fdfbf4; /* Warm cream background like the screenshot */
+  background: url('/bg-building.webp') center/cover no-repeat fixed;
+  background-color: #070d1f;
   font-family: 'Inter', sans-serif;
   overflow: hidden;
 }
@@ -22,9 +23,8 @@
 .login-bg-texture {
   position: absolute;
   inset: 0;
-  background-image: radial-gradient(#d4af37 0.5px, transparent 0.5px);
-  background-size: 32px 32px;
-  opacity: 0.1;
+  /* Premium dark overlay to merge the background and make the card pop */
+  background: linear-gradient(135deg, rgba(7, 13, 31, 0.85) 0%, rgba(15, 26, 61, 0.7) 100%);
   z-index: 0;
 }
 

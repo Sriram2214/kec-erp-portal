@@ -13,10 +13,15 @@ class Config:
         db_url = db_url.replace("postgres://", "postgresql://", 1)
         
     # Vercel Read-Only Fix: Use /tmp for SQLite
-    if os.environ.get('VERCEL') == '1':
+    if os.environ.get('VERCEL') == '1' or os.environ.get('VERCEL_ENV') or not os.access(".", os.W_OK):
         SQLALCHEMY_DATABASE_URI = db_url or 'sqlite:////tmp/app.db'
     else:
-        SQLALCHEMY_DATABASE_URI = db_url or 'sqlite:///' + os.path.join(basedir, 'instance', 'app.db')
+        # Create instance dir if not exists locally
+        instance_path = os.path.join(basedir, 'instance')
+        if not os.path.exists(instance_path):
+            try: os.makedirs(instance_path)
+            except: pass
+        SQLALCHEMY_DATABASE_URI = db_url or 'sqlite:///' + os.path.join(instance_path, 'app.db')
     
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 

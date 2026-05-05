@@ -11,7 +11,10 @@ db = SQLAlchemy()
 login_manager = LoginManager()
 migrate = Migrate()
 csrf = CSRFProtect()
-# compress = Compress()
+limiter = Limiter(key_func=get_remote_address, default_limits=["2000 per day", "500 per hour"])
+from flask_compress import Compress
+# cors = CORS() # REMOVED DUE TO INSTALL ISSUE
+compress = Compress()
 login_manager.login_view = "auth.login"
 login_manager.login_message_category = "info"
 
@@ -31,8 +34,8 @@ def create_app(config_class=Config):
     login_manager.init_app(app)
     migrate.init_app(app, db)
     csrf.init_app(app)
-    # limiter.init_app(app)
-    # compress.init_app(app)
+    limiter.init_app(app)
+    compress.init_app(app)
 
     @app.after_request
     def add_cors_headers(response):
@@ -49,8 +52,9 @@ def create_app(config_class=Config):
     # we might need to handle it or exempt temporarily for dev.
     # We will exempt the api blueprint for now to avoid breaking the frontend.
 
-    # from flask_talisman import Talisman
-    # Talisman(app, content_security_policy=None, force_https=False)  # Disable HTTPS force for local dev
+    from flask_talisman import Talisman
+
+    Talisman(app, content_security_policy=None, force_https=False)  # Disable HTTPS force for local dev
 
     from app.auth import auth_bp
 
@@ -65,7 +69,7 @@ def create_app(config_class=Config):
 
     app.register_blueprint(api_bp)  # FIXED: Missing registration
     csrf.exempt(api_bp)
-    # limiter.exempt(api_bp)
+    limiter.exempt(api_bp)
     
     from app.api.init import init_bp
     app.register_blueprint(init_bp)
@@ -80,11 +84,11 @@ def create_app(config_class=Config):
 
     # Talisman: Only force HTTPS in production
     is_prod = os.environ.get('VERCEL') == '1' or os.environ.get('FLASK_ENV') == 'production'
-    # from flask_talisman import Talisman
-    # Talisman(app, 
-    #          content_security_policy=None, 
-    #          force_https=is_prod,
-    #          strict_transport_security=is_prod)
+    from flask_talisman import Talisman
+    Talisman(app, 
+             content_security_policy=None, 
+             force_https=is_prod,
+             strict_transport_security=is_prod)
 
     @app.before_request
     def log_request_info():

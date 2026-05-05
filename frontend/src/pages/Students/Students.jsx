@@ -6,8 +6,8 @@ import './Students.css'
 const YEARS = [1,2,3,4]
 const SEMS  = [1,2,3,4,5,6,7,8]
 const EMPTY = {
-  register_number:'', name:'', department:'', degree:'BE',
-  batch:'', academic_year:'', semester:'', regulation:'R2021',
+  register_number:'', name:'', department:'', degree:'',
+  batch:'', academic_year:'', semester:'', regulation:'',
   email:'', phone:'', dob:''
 }
 
@@ -149,14 +149,15 @@ export default function Students() {
                 <div className="field">
                   <label>Degree</label>
                   <select required value={form.degree} onChange={set('degree')}>
-                    {master.degrees.map(d => <option key={d.id}>{d.name}</option>)}
+                    <option value="">Select Degree</option>
+                    {master.degrees?.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
                   </select>
                 </div>
                 <div className="field">
                   <label>Department</label>
                   <select required value={form.department} onChange={set('department')}>
                     <option value="">Select Department</option>
-                    {master.departments.map(d => (
+                    {master.departments?.map(d => (
                       <option key={d.id} value={d.code}>{d.code} — {d.name}</option>
                     ))}
                   </select>
@@ -165,13 +166,14 @@ export default function Students() {
                   <label>Batch</label>
                   <select required value={form.batch} onChange={set('batch')}>
                     <option value="">Select Batch</option>
-                    {master.batches.map(b => <option key={b.id}>{b.label}</option>)}
+                    {master.batches?.map(b => <option key={b.id} value={b.label}>{b.label}</option>)}
                   </select>
                 </div>
                 <div className="field">
                   <label>Regulation</label>
                   <select required value={form.regulation} onChange={set('regulation')}>
-                    {master.regulations.map(r => <option key={r.id}>{r.name}</option>)}
+                    <option value="">Select Regulation</option>
+                    {master.regulations?.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
                   </select>
                 </div>
                 <div className="field">

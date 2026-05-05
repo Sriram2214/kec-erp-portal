@@ -20,8 +20,7 @@ export default function Attendance() {
   const [courseCode,   setCourseCode]   = useState('')
   const [courseInfo,   setCourseInfo]   = useState(null)
   const [students,     setStudents]     = useState([])
-  const [departments,  setDepartments]  = useState([])
-  const [selDept,      setSelDept]      = useState('')
+  const [courses,      setCourses]      = useState([])
   const [searchTerm,   setSearchTerm]   = useState('')
   const [examDate,     setExamDate]     = useState('')
   const [session,      setSession]      = useState('FN')
@@ -46,19 +45,19 @@ export default function Attendance() {
       setCourseCode(code)
       handleLoad(code)
     }
-    fetchDepts()
+    fetchCourses()
   }, [])
 
-  // Reset page when department filter changes
+  // Reset page when search changes
   useEffect(() => {
     setCurrentPage(1)
-  }, [selDept])
+  }, [searchTerm])
 
-  async function fetchDepts() {
+  async function fetchCourses() {
     try {
-      const res = await api.get('/master/departments')
-      setDepartments(res.data)
-    } catch (e) { console.error('Failed to fetch departments') }
+      const res = await api.get('/courses')
+      setCourses(res.data)
+    } catch (e) { console.error('Failed to fetch courses') }
   }
 
   /* ── Fetch course + students ───────────────────────── */
@@ -96,10 +95,7 @@ export default function Attendance() {
 
   /* ── Mark all ──────────────────────────────────────── */
   function markAll(status) {
-    setStudents(prev => prev.map(s => {
-      if (selDept && s.department !== selDept) return s
-      return { ...s, status }
-    }))
+    setStudents(prev => prev.map(s => ({ ...s, status })))
     setSaved(false)
   }
 
@@ -137,8 +133,8 @@ export default function Attendance() {
     if (!courseInfo) return
     setPdfLoading(true)
     try {
-      const url = `/ese/attendance-pdf?course_code=${courseInfo.course_code}&department=${selDept}`
-      await downloadBlob(url, `Attendance_${courseInfo.course_code}_${selDept || 'ALL'}.pdf`)
+      const url = `/ese/attendance-pdf?course_code=${courseInfo.course_code}`
+      await downloadBlob(url, `Attendance_${courseInfo.course_code}_ALL.pdf`)
     } catch { setError('PDF generation failed.') }
     finally { setPdfLoading(false) }
   }
@@ -183,11 +179,10 @@ export default function Attendance() {
   }
 
   const filteredStudents = students.filter(s => {
-    const matchesDept = !selDept || s.department === selDept
     const matchesSearch = !searchTerm || 
       s.register_number.includes(searchTerm) || 
       s.name.toLowerCase().includes(searchTerm.toLowerCase())
-    return matchesDept && matchesSearch
+    return matchesSearch
   })
 
   const absentCount  = filteredStudents.filter(s => s.status === 'Absent').length
@@ -218,12 +213,18 @@ export default function Attendance() {
             <input
               ref={inputRef}
               type="text"
+              list="course-options"
               className="ese-code-input"
               placeholder="e.g. GE241203"
               value={courseCode}
               onChange={e => { setCourseCode(e.target.value.toUpperCase()); setError('') }}
               onKeyDown={e => e.key === 'Enter' && handleLoad()}
             />
+            <datalist id="course-options">
+              {courses.map(c => (
+                <option key={c.id} value={c.course_code}>{c.course_title}</option>
+              ))}
+            </datalist>
           </div>
           <button
             className="btn btn-gold ese-load-btn"
@@ -307,16 +308,6 @@ export default function Attendance() {
               </button>
               
               <div className="ese-pdf-selector">
-                <select 
-                  className="ese-dept-select" 
-                  value={selDept} 
-                  onChange={e => setSelDept(e.target.value)}
-                >
-                  <option value="">All Departments</option>
-                  {departments.map(d => (
-                    <option key={d.id} value={d.code}>{d.code}</option>
-                  ))}
-                </select>
                 <div className="ese-search-box">
                   <Icon.Search />
                   <input 
@@ -355,8 +346,9 @@ export default function Attendance() {
               <thead>
                 <tr>
                   <th style={{ width: '8%' }}>S.No</th>
-                  <th style={{ width: '22%' }}>Reg. No</th>
-                  <th style={{ width: '50%' }}>Name of Student</th>
+                  <th style={{ width: '18%' }}>Reg. No</th>
+                  <th style={{ width: '40%' }}>Name of Student</th>
+                  <th style={{ width: '14%' }}>Dept</th>
                   <th style={{ width: '20%', textAlign: 'center' }}>Status</th>
                 </tr>
               </thead>
@@ -374,6 +366,7 @@ export default function Attendance() {
                       <td className="ese-sno">{realIndex}</td>
                       <td className="ese-regno">{s.register_number}</td>
                       <td className="ese-name">{s.name}</td>
+                      <td className="ese-dept"><span className="badge badge-blue">{s.department}</span></td>
                       <td className="ese-status-cell">
                         <div className="status-segmented">
                           <button 

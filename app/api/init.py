@@ -25,24 +25,28 @@ def init_db():
             coe.set_password('coe123')
             db.session.add(coe)
 
-        # Basic Master Data
+        # 1. Degrees
         if not Degree.query.first():
-            be = Degree(name='BE')
-            db.session.add(be)
+            for deg_name in ['B.E', 'B.TECH', 'M.E', 'PhD.']:
+                db.session.add(Degree(name=deg_name))
             db.session.flush()
-            
+
+        # 2. Departments
+        if not Department.query.first():
+            # Associate depts with B.E by default for now
+            be = Degree.query.filter_by(name='B.E').first()
             depts = [
+                ('AI&DS', 'Artificial Intelligence and Data Science'),
+                ('AIML', 'Artificial Intelligence and Machine Learning'),
+                ('BME', 'Biomedical Engineering'),
                 ('CSE', 'Computer Science and Engineering'),
                 ('ECE', 'Electronics and Communication Engineering'),
-                ('EEE', 'Electrical and Electronics Engineering'),
-                ('MECH', 'Mechanical Engineering'),
                 ('IT', 'Information Technology'),
-                ('AI&ML', 'Artificial Intelligence and Machine Learning'),
-                ('BME', 'Biomedical Engineering'),
-                ('RA', 'Robotics and Automation')
+                ('MECH', 'Mechanical Engineering'),
+                ('RAA', 'Robotics and Automation')
             ]
             for code, name in depts:
-                db.session.add(Department(code=code, name=name, degree_id=be.id))
+                db.session.add(Department(code=code, name=name, degree_id=be.id if be else 1))
 
         if not Regulation.query.first():
             db.session.add(Regulation(name='R2021'))
@@ -52,10 +56,10 @@ def init_db():
             ay = AcademicYear(label='2023-24', semester='ODD', is_current=True)
             db.session.add(ay)
 
+        # 3. Batches
         if not Batch.query.first():
-            db.session.add(Batch(label='2021-2025'))
-            db.session.add(Batch(label='2022-2026'))
-            db.session.add(Batch(label='2023-2027'))
+            for b in ['2021-2025', '2022-2026', '2023-2027', '2024-2028']:
+                db.session.add(Batch(label=b))
 
         db.session.commit()
         return jsonify({

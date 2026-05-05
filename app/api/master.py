@@ -105,10 +105,47 @@ def manage_ay():
 @api.route('/master', methods=['GET'])
 @login_required
 def get_all_master():
+    depts = [{'id': d.id, 'code': d.code, 'name': d.name} for d in Department.query.all()]
+    degrees = [{'id': d.id, 'name': d.name} for d in Degree.query.all()]
+    batches = [{'id': b.id, 'label': b.label} for b in Batch.query.all()]
+    regs = [{'id': r.id, 'name': r.name} for r in Regulation.query.all()]
+    ays = [{'id': a.id, 'label': a.label, 'semester': a.semester, 'is_current': a.is_current} for a in AcademicYear.query.all()]
+
+    # Fallback for Vercel/Empty DB
+    if not depts:
+        depts = [
+            {'id': 1, 'code': 'AI&DS', 'name': 'Artificial Intelligence and Data Science'},
+            {'id': 2, 'code': 'AIML', 'name': 'Artificial Intelligence and Machine Learning'},
+            {'id': 3, 'code': 'BME', 'name': 'Biomedical Engineering'},
+            {'id': 4, 'code': 'CSE', 'name': 'Computer Science and Engineering'},
+            {'id': 5, 'code': 'ECE', 'name': 'Electronics and Communication Engineering'},
+            {'id': 6, 'code': 'IT', 'name': 'Information Technology'},
+            {'id': 7, 'code': 'MECH', 'name': 'Mechanical Engineering'},
+            {'id': 8, 'code': 'RAA', 'name': 'Robotics and Automation'}
+        ]
+    if not degrees:
+        degrees = [
+            {'id': 1, 'name': 'B.E'},
+            {'id': 2, 'name': 'B.TECH'},
+            {'id': 3, 'name': 'M.E'},
+            {'id': 4, 'name': 'PhD.'}
+        ]
+    if not batches:
+        batches = [
+            {'id': 1, 'label': '2021-2025'},
+            {'id': 2, 'label': '2022-2026'},
+            {'id': 3, 'label': '2023-2027'},
+            {'id': 4, 'label': '2024-2028'}
+        ]
+    if not regs:
+        regs = [{'id': 1, 'name': 'R2021'}, {'id': 2, 'name': 'R2019'}]
+    if not ays:
+        ays = [{'id': 1, 'label': '2023-24', 'semester': 'ODD', 'is_current': True}]
+
     return jsonify({
-        'departments': [{'id': d.id, 'code': d.code, 'name': d.name} for d in Department.query.all()],
-        'degrees': [{'id': d.id, 'name': d.name} for d in Degree.query.all()],
-        'batches': [{'id': b.id, 'label': b.label} for b in Batch.query.all()],
-        'regulations': [{'id': r.id, 'name': r.name} for r in Regulation.query.all()],
-        'academic_years': [{'id': a.id, 'label': a.label, 'semester': a.semester, 'is_current': a.is_current} for a in AcademicYear.query.all()]
+        'departments': depts,
+        'degrees': degrees,
+        'batches': batches,
+        'regulations': regs,
+        'academic_years': ays
     })

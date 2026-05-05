@@ -36,25 +36,80 @@
 .mono  { font-family: monospace; font-size: 0.88rem; color: var(--navy); font-weight: 600; }
 
 /* Filter Bar */
-.filter-bar { margin-bottom: 1rem; padding: 0.75rem 1rem !important; }
-.filter-row {
-  display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
+.filter-bar { 
+  margin-bottom: 1.5rem; 
+  padding: 1rem 1.5rem !important;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
 }
-.filter-row select {
-  padding: 0.35rem 0.6rem;
-  border: 1.5px solid var(--border);
-  border-radius: 6px;
-  font-size: 0.78rem;
-  background: var(--surface-2);
-  color: var(--text);
+.filter-row {
+  display: flex; 
+  align-items: center; 
+  gap: 1.2rem; 
+  flex-wrap: wrap;
+}
+.filter-group {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+.filter-group select {
+  padding: 0.6rem 1rem;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 0.8rem;
+  background: #f8fafc;
+  color: #1e293b;
   cursor: pointer;
   outline: none;
+  font-weight: 500;
+  transition: all 0.2s;
 }
-.filter-row select:focus { border-color: var(--navy); }
-.filter-count { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.4rem; }
+.filter-group select:focus { 
+  border-color: var(--gold);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.1);
+}
+
+.search-wrap {
+  flex: 1;
+  min-width: 250px;
+}
+.search-wrap .search-input {
+  width: 100%;
+  padding: 0.6rem 1.2rem;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+}
+.search-wrap .search-input:focus {
+  background: #fff;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.1);
+}
+
+.action-buttons {
+  display: flex;
+  gap: 0.8rem;
+  margin-left: auto;
+}
+
+.filter-footer {
+  margin-top: 1rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid #f1f5f9;
+}
+.filter-count { 
+  font-size: 0.78rem; 
+  color: #64748b; 
+}
+.filter-count strong { color: var(--navy-dark); font-weight: 700; }
+.filter-count span { margin-left: 0.5rem; opacity: 0.6; }
 
 /* Department sections */
-.dept-section { margin-bottom: 1rem; overflow: hidden; }
+.dept-section { margin-bottom: 1.5rem; border: 1px solid #e2e8f0; border-radius: 12px; }
 .dept-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 0.6rem 1rem; cursor: pointer;

@@ -298,24 +298,30 @@ export default function Students() {
       {/* ── Filter Bar ── */}
       <div className="filter-bar card">
         <div className="filter-row">
-          <select value={filterDept} onChange={e => setFilterDept(e.target.value)}>
-            <option value="">All Departments</option>
-            {master.departments.map(d => <option key={d.id} value={d.code}>{d.code}</option>)}
-          </select>
-          <select value={filterBatch} onChange={e => setFilterBatch(e.target.value)}>
-            <option value="">All Batches</option>
-            {master.batches.map(b => <option key={b.id} value={b.label}>{b.label}</option>)}
-          </select>
-          <select value={filterYear} onChange={e => setFilterYear(e.target.value)}>
-            <option value="">All Years</option>
-            {YEARS.map(y => <option key={y} value={y}>Year {y}</option>)}
-          </select>
-          <input className="search-input" placeholder="Search name / reg no…"
-            value={search} onChange={e => setSearch(e.target.value)} />
+          <div className="filter-group">
+            <select value={filterDept} onChange={e => setFilterDept(e.target.value)}>
+              <option value="">All Departments</option>
+              {master.departments.map(d => <option key={d.id} value={d.code}>{d.code}</option>)}
+            </select>
+            <select value={filterBatch} onChange={e => setFilterBatch(e.target.value)}>
+              <option value="">All Batches</option>
+              {master.batches.map(b => <option key={b.id} value={b.label}>{b.label}</option>)}
+            </select>
+            <select value={filterYear} onChange={e => setFilterYear(e.target.value)}>
+              <option value="">All Years</option>
+              {YEARS.map(y => <option key={y} value={y}>Year {y}</option>)}
+            </select>
+          </div>
+          
+          <div className="search-wrap">
+            <input className="search-input" placeholder="Search name or register number…"
+              value={search} onChange={e => setSearch(e.target.value)} />
+          </div>
+
           {addMode === 'none' && (
-            <div style={{ display:'flex', gap:'0.5rem', marginLeft:'auto' }}>
+            <div className="action-buttons">
               <button className="btn btn-gold btn-sm" onClick={() => setAddMode('individual')}>
-                + Add Individual
+                <span className="btn-icon">+</span> Add Individual
               </button>
               <button className="btn btn-outline btn-sm" onClick={() => setAddMode('excel')}>
                 Upload Excel
@@ -323,8 +329,10 @@ export default function Students() {
             </div>
           )}
         </div>
-        <div className="filter-count">
-          Showing <strong>{filtered.length}</strong> of {students.length} students
+        <div className="filter-footer">
+          <div className="filter-count">
+            Found <strong>{filtered.length}</strong> matching records <span>(Total: {students.length})</span>
+          </div>
         </div>
       </div>
 

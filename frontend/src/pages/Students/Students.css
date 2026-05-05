@@ -14,9 +14,35 @@
 
 .form-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-  gap: 1rem;
-  margin-bottom: 1rem;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+  padding: 0.5rem;
+}
+
+@media (max-width: 1024px) { .form-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } }
+
+.field { display: flex; flex-direction: column; gap: 0.5rem; }
+.field label { 
+  font-size: 0.72rem; 
+  font-weight: 700; 
+  color: #64748b; 
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+.field input, .field select {
+  padding: 0.7rem 1rem;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  background: #f8fafc;
+  transition: all 0.2s;
+}
+.field input:focus, .field select:focus {
+  border-color: var(--gold);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.1);
 }
 .form-actions { display: flex; gap: 0.6rem; margin-top: 0.5rem; }
 .form-card { border-left: 3px solid var(--gold); margin-bottom: 1.2rem; }

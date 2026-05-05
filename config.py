@@ -12,14 +12,9 @@ class Config:
     if db_url and db_url.startswith("postgres://"):
         db_url = db_url.replace("postgres://", "postgresql://", 1)
         
-    # Vercel Read-Only Fix: Use /tmp for SQLite if in production
+    # Vercel Read-Only Fix: Use /tmp for SQLite
     if os.environ.get('VERCEL') == '1':
-        tmp_db = '/tmp/app.db'
-        seeded_db = os.path.join(basedir, 'instance', 'app_seeded.db')
-        import shutil
-        if not os.path.exists(tmp_db) and os.path.exists(seeded_db):
-            shutil.copy2(seeded_db, tmp_db)
-        SQLALCHEMY_DATABASE_URI = db_url or f'sqlite:///{tmp_db}'
+        SQLALCHEMY_DATABASE_URI = db_url or 'sqlite:////tmp/app.db'
     else:
         SQLALCHEMY_DATABASE_URI = db_url or 'sqlite:///' + os.path.join(basedir, 'instance', 'app.db')
     

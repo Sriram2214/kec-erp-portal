@@ -48,7 +48,7 @@
 
 .login-card {
   width: 100%;
-  max-width: 540px; /* Wider card as per screenshot */
+  max-width: 480px; /* Reduced from 540px */
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(212, 175, 55, 0.2);
@@ -139,8 +139,8 @@
   background: #f8fafc;
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 0.9rem 0.5rem;
-  font-size: 0.75rem;
+  padding: 0.6rem 0.4rem;
+  font-size: 0.65rem;
   font-weight: 700;
   color: #64748b;
   cursor: pointer;

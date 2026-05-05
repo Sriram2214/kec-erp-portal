@@ -29,6 +29,6 @@ tzdata==2026.2
 Werkzeug==3.0.2
 Flask-WTF==1.2.1
 Flask-Cors==4.0.1
-Flask-Compress
+flask-compress
 flask-talisman
 flask-limiter

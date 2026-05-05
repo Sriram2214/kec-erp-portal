@@ -7,7 +7,7 @@ export default defineConfig(({ mode }) => ({
 
   // Production build → Flask serves from /static/dist/
   build: {
-    outDir: path.resolve(__dirname, '../app/static/dist'),
+    outDir: 'dist',
     emptyOutDir: true,
     sourcemap: false,
     rollupOptions: {

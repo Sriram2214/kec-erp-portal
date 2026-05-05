@@ -62,7 +62,8 @@ def create_app(config_class=Config):
 
     csrf.exempt(api_bp)
     limiter.exempt(api_bp)
-    app.register_blueprint(api_bp)
+    from app.api.init import init_bp
+    app.register_blueprint(init_bp)
     # ───────────────────────────────────────────────────────────────────
 
     from app.core import core_bp

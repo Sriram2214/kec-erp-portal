@@ -196,7 +196,6 @@ def generate_stickers(schedule_id):
     return response
 
 
-import pandas as pd
 from flask import flash, redirect, url_for
 from app.models import DummySticker
 
@@ -217,19 +216,30 @@ def upload_dummy(schedule_id):
     if file and (file.filename.endswith('.csv') or file.filename.endswith('.xlsx')):
         try:
             if file.filename.endswith('.csv'):
-                df = pd.read_csv(file)
+                import csv
+                stream = io.StringIO(file.stream.read().decode("UTF8"), newline=None)
+                reader = csv.DictReader(stream)
+                data = list(reader)
             else:
-                df = pd.read_excel(file)
+                import openpyxl
+                wb = openpyxl.load_workbook(file, data_only=True)
+                ws = wb.active
+                headers = [str(cell.value).strip() for cell in ws[1]]
+                data = []
+                for row in ws.iter_rows(min_row=2, values_only=True):
+                    if not any(row): continue
+                    data.append(dict(zip(headers, row)))
             
             # Expected columns: Register Number, Dummy Number, Foil Number
             required_cols = ['Register Number', 'Dummy Number', 'Foil Number']
-            if not all(col in df.columns for col in required_cols):
+            # Check if all required cols are in data[0].keys() or similar
+            if not data or not all(col in data[0] for col in required_cols):
                 flash('Missing required columns. Expected: Register Number, Dummy Number, Foil Number', 'error')
                 return redirect(url_for('exam.exam_dashboard'))
                 
             success_count = 0
-            # Process dataframe
-            for _, row in df.iterrows():
+            # Process data
+            for row in data:
                 reg_no = str(row['Register Number']).strip()
                 dummy_no = str(row['Dummy Number']).strip()
                 foil_no = str(row['Foil Number']).strip()

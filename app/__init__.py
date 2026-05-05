@@ -1,3 +1,4 @@
+import os
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_migrate import Migrate
@@ -38,7 +39,10 @@ def create_app(config_class=Config):
 
     @app.after_request
     def add_cors_headers(response):
-        response.headers["Access-Control-Allow-Origin"] = "http://localhost:3000"
+        from flask import request
+        origin = request.headers.get('Origin')
+        if origin:
+            response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
         response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
         response.headers["Access-Control-Allow-Credentials"] = "true"
@@ -56,15 +60,17 @@ def create_app(config_class=Config):
 
     app.register_blueprint(auth_bp, url_prefix="/auth")
 
-    @app.route("/health")
+    @app.route("/api/health")
     def health():
         return {"status": "ok", "service": "kec_erp", "database": "connected"}
 
     # ── Modular API routes ────────────────────────────────────────────────
     from app.api import api as api_bp
 
+    app.register_blueprint(api_bp)  # FIXED: Missing registration
     csrf.exempt(api_bp)
     limiter.exempt(api_bp)
+    
     from app.api.init import init_bp
     app.register_blueprint(init_bp)
     # ───────────────────────────────────────────────────────────────────
@@ -75,6 +81,14 @@ def create_app(config_class=Config):
     from app.errors import register_error_handlers
 
     register_error_handlers(app)
+
+    # Talisman: Only force HTTPS in production
+    is_prod = os.environ.get('VERCEL') == '1' or os.environ.get('FLASK_ENV') == 'production'
+    from flask_talisman import Talisman
+    Talisman(app, 
+             content_security_policy=None, 
+             force_https=is_prod,
+             strict_transport_security=is_prod)
 
     @app.before_request
     def log_request_info():

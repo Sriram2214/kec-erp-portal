@@ -5,5 +5,8 @@
   "scripts": {
     "build": "cd frontend && npm install && npm run build",
     "install-frontend": "cd frontend && npm install"
+  },
+  "engines": {
+    "node": "20.x"
   }
 }

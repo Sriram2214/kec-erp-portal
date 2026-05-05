@@ -12,7 +12,12 @@ class Config:
     if db_url and db_url.startswith("postgres://"):
         db_url = db_url.replace("postgres://", "postgresql://", 1)
         
-    SQLALCHEMY_DATABASE_URI = db_url or 'sqlite:///' + os.path.join(basedir, 'instance', 'app.db')
+    # Vercel Read-Only Fix: Use /tmp for SQLite if in production
+    if os.environ.get('VERCEL') == '1':
+        SQLALCHEMY_DATABASE_URI = db_url or 'sqlite:////tmp/app.db'
+    else:
+        SQLALCHEMY_DATABASE_URI = db_url or 'sqlite:///' + os.path.join(basedir, 'instance', 'app.db')
+    
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # Engine Options

@@ -57,9 +57,8 @@ def init_db():
             for b in ['2021-2025', '2022-2026', '2023-2027', '2024-2028']:
                 db.session.add(Batch(label=b))
 
-        # 4. Demo Data (Courses & 500 Students)
+        # 4. Demo Courses
         from app.models import Student, Course
-        import random
         
         if not Course.query.first():
             courses = [
@@ -72,16 +71,6 @@ def init_db():
             ]
             for code, title, dept, sem in courses:
                 db.session.add(Course(course_code=code, course_title=title, department=dept, semester=sem, credits=3))
-
-        if Student.query.count() < 100:
-            first_names = ["Aarav", "Vivaan", "Aditya", "Arjun", "Sai", "Ayaan", "Krishna", "Ishaan", "Shaurya", "Karan", "Rohan", "Rahul", "Varun", "Vikram", "Sanjay", "Vijay", "Deepak", "Prakash", "Suresh", "Ramesh", "Karthik", "Gautam", "Harish", "Ashwin", "Manoj", "Prasad", "Aanya", "Diya", "Isha", "Kavya", "Meera", "Neha", "Priya", "Riya", "Sanya", "Tara", "Anjali", "Divya", "Pooja", "Sneha", "Swati"]
-            last_names = ["Kumar", "Sharma", "Singh", "Patel", "Reddy", "Rao", "Iyer", "Pillai", "Nair", "Menon", "Jain", "Gupta", "Desai", "Joshi", "Bhatt", "Venkatesh", "Krishnan", "Rajan", "Natarajan", "Sundaram", "Murthy", "Balakrishnan", "Srinivasan", "Chandran", "Ramachandran", "Subramaniam", "Kannan", "Ganesan"]
-            
-            depts = ['AI&DS', 'AIML', 'BME', 'CSE', 'ECE', 'IT', 'MECH', 'RAA']
-            dept_map = {'AI&DS':'AD', 'AIML':'AM', 'BME':'BM', 'CSE':'CS', 'ECE':'EC', 'IT':'IT', 'MECH':'ME', 'RAA':'RA'}
-            
-        if Student.query.count() == 0:
-            pass # Removed dummy generation to prevent Vercel 10s timeout
 
         db.session.commit()
         return jsonify({

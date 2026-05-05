@@ -37,6 +37,7 @@ generate_login.py
 
 # KCE ERP Specific
 instance/
+!instance/app_seeded.db
 logs/
 .venv/
 node_modules/

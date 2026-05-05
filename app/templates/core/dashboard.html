@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} | KEC ERP{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="fw-bold mb-0">Dashboard</h2>
+        <p class="text-muted mb-0 small">Welcome back, {{ current_user.username }} &mdash; {{ current_user.role | capitalize }}</p>
+    </div>
+    <a href="{{ url_for('exam.exam_dashboard') }}" class="btn btn-primary">
+        <i class="bi bi-journal-check me-1"></i> Go to Exam Management
+    </a>
+</div>
+
+<!-- Live Stat Cards -->
+<div class="row g-4">
+    <div class="col-md-3">
+        <div class="card p-4 border-0 h-100" style="background:rgba(59,130,246,0.1);">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <p class="text-muted mb-1 small text-uppercase fw-semibold">Total Students</p>
+                    <h3 class="fw-bold mb-0">{{ stats.students }}</h3>
+                </div>
+                <div class="p-3 rounded" style="background:rgba(59,130,246,0.2);">
+                    <i class="bi bi-people text-primary fs-4"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card p-4 border-0 h-100" style="background:rgba(34,197,94,0.1);">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <p class="text-muted mb-1 small text-uppercase fw-semibold">Active Courses</p>
+                    <h3 class="fw-bold mb-0">{{ stats.courses }}</h3>
+                </div>
+                <div class="p-3 rounded" style="background:rgba(34,197,94,0.2);">
+                    <i class="bi bi-journal-text text-success fs-4"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card p-4 border-0 h-100" style="background:rgba(249,115,22,0.1);">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <p class="text-muted mb-1 small text-uppercase fw-semibold">Upcoming Exams</p>
+                    <h3 class="fw-bold mb-0">{{ stats.exams }}</h3>
+                </div>
+                <div class="p-3 rounded" style="background:rgba(249,115,22,0.2);">
+                    <i class="bi bi-calendar-event text-warning fs-4"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card p-4 border-0 h-100" style="background:rgba(168,85,247,0.1);">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <p class="text-muted mb-1 small text-uppercase fw-semibold">Faculty</p>
+                    <h3 class="fw-bold mb-0">{{ stats.faculty }}</h3>
+                </div>
+                <div class="p-3 rounded" style="background:rgba(168,85,247,0.2);">
+                    <i class="bi bi-person-badge fs-4" style="color:#a855f7;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card p-4">
+            <h5 class="fw-bold mb-4"><i class="bi bi-lightning-charge me-2 text-warning"></i>Quick Actions</h5>
+            <div class="d-flex gap-3 flex-wrap">
+                <a href="{{ url_for('exam.exam_dashboard') }}" class="btn btn-primary bg-opacity-10 text-primary border-0">
+                    <i class="bi bi-calendar2-check me-2"></i>Manage Exams
+                </a>
+                <a href="{{ url_for('exam.exam_dashboard') }}" class="btn btn-success bg-opacity-10 text-success border-0">
+                    <i class="bi bi-check2-square me-2"></i>Mark Attendance
+                </a>
+                <a href="{{ url_for('exam.exam_dashboard') }}" class="btn btn-warning bg-opacity-10 text-warning border-0">
+                    <i class="bi bi-file-earmark-pdf me-2"></i>Generate Despatch
+                </a>
+                <a href="{{ url_for('exam.exam_dashboard') }}" class="btn btn-info bg-opacity-10 text-info border-0">
+                    <i class="bi bi-tags me-2"></i>Dummy Stickers
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Info Banner -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card p-4 border-0" style="background: linear-gradient(135deg, rgba(26,42,94,0.8), rgba(59,130,246,0.2)); border-left: 4px solid #3b82f6 !important;">
+            <div class="d-flex align-items-center gap-3">
+                <i class="bi bi-shield-check text-primary fs-2"></i>
+                <div>
+                    <h6 class="fw-bold mb-1">KEC Examination Management System — Production Ready</h6>
+                    <p class="text-muted mb-0 small">Secured with session-based authentication. All exam data including Despatch Reports and Dummy Stickers are generated server-side using ReportLab PDF.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

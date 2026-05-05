@@ -1,0 +1,136 @@
+.splash-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #020617;
+  overflow: hidden;
+  transition: opacity 0.8s ease-out, visibility 0.8s;
+}
+
+.splash-screen.fade-out {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.splash-bg {
+  position: absolute;
+  inset: -5%;
+  background-image: url('/src/assets/building-bg.png');
+  background-size: cover;
+  background-position: center;
+  z-index: 0;
+  filter: brightness(0.4) saturate(1.2);
+  animation: splashBgZoom 8s ease-out forwards;
+}
+
+@keyframes splashBgZoom {
+  from { transform: scale(1.1); }
+  to { transform: scale(1); }
+}
+
+.splash-overlay {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(15, 26, 61, 0.4) 0%, rgba(2, 6, 23, 0.9) 100%);
+  z-index: 1;
+}
+
+.splash-content {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.splash-logo {
+  width: 120px;
+  height: 120px;
+  background: white;
+  border-radius: 50%;
+  padding: 10px;
+  box-shadow: 0 0 50px rgba(212, 175, 55, 0.4);
+  animation: logoAppear 1.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.splash-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.splash-text-wrap {
+  overflow: hidden;
+}
+
+.splash-text {
+  font-family: 'Cinzel', serif;
+  font-size: clamp(2rem, 5vw, 4rem);
+  font-weight: 800;
+  color: #ffffff;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  line-height: 1.1;
+  text-align: center;
+  margin: 0;
+  animation: textSlideUp 1.5s cubic-bezier(0.22, 1, 0.36, 1) both 0.3s;
+  text-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.splash-text span {
+  display: block;
+  font-size: 0.4em;
+  letter-spacing: 0.5em;
+  color: #d4af37;
+  margin-top: 0.5rem;
+  font-weight: 600;
+}
+
+.splash-loader {
+  width: 200px;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  margin-top: 2rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.splash-loader-bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background: #d4af37;
+  width: 0;
+  animation: loaderProgress 2.5s ease-in-out forwards;
+}
+
+@keyframes logoAppear {
+  0% { opacity: 0; transform: scale(0.5) rotate(-10deg); filter: blur(10px); }
+  100% { opacity: 1; transform: scale(1) rotate(0); filter: blur(0); }
+}
+
+@keyframes textSlideUp {
+  0% { opacity: 0; transform: translateY(100%); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes loaderProgress {
+  0% { width: 0; }
+  20% { width: 10%; }
+  60% { width: 85%; }
+  100% { width: 100%; }
+}
+
+@media (max-width: 768px) {
+  .splash-text { font-size: 2.2rem; }
+  .splash-logo { width: 90px; height: 90px; }
+}
+

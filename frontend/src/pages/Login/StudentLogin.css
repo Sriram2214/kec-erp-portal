@@ -1,0 +1,95 @@
+.std-login-page {
+  height: 100vh;
+  width: 100%;
+  background: linear-gradient(135deg, #f5f3ff 0%, #ddd6fe 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.std-login-card {
+  background: white;
+  border-radius: 30px;
+  padding: 3rem;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 20px 40px rgba(124, 58, 237, 0.08);
+}
+
+.std-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.std-logo {
+  font-size: 3.5rem;
+  margin-bottom: 1rem;
+}
+
+.std-header h2 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #4c1d95;
+}
+
+.std-header p {
+  font-size: 0.8rem;
+  color: #6d28d9;
+}
+
+.std-field {
+  margin-bottom: 1.5rem;
+}
+
+.std-field label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #6d28d9;
+  margin-bottom: 0.5rem;
+  letter-spacing: 0.05em;
+}
+
+.std-field input {
+  width: 100%;
+  padding: 1rem;
+  border: 2px solid #f5f3ff;
+  border-radius: 15px;
+  background: #f8fafc;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.std-field input:focus {
+  border-color: #8b5cf6;
+  background: white;
+}
+
+.std-btn {
+  width: 100%;
+  padding: 1rem;
+  background: #7c3aed;
+  color: white;
+  border: none;
+  border-radius: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.std-btn:hover {
+  background: #6d28d9;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(124, 58, 237, 0.3);
+}
+
+.std-error {
+  background: #fef2f2;
+  color: #dc2626;
+  padding: 0.8rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid #fee2e2;
+  text-align: center;
+}

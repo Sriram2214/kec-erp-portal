@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <a href="{{ url_for('exam.exam_dashboard') }}" class="text-muted text-decoration-none small mb-2 d-inline-block"><i class="bi bi-arrow-left me-1"></i> Back to Exams</a>
+        <h2 class="fw-bold">Attendance Entry</h2>
+        <p class="text-muted mb-0">{{ schedule.course.course_code }} - {{ schedule.course.course_title }} ({{ schedule.exam_date.strftime('%Y-%m-%d') }} {{ schedule.session }})</p>
+    </div>
+</div>
+
+<div class="card p-4">
+    <div class="table-responsive">
+        <table class="table table-dark table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Register Number</th>
+                    <th>Name</th>
+                    <th>Department</th>
+                    <th class="text-center">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for student in students %}
+                {% set status = attendance_dict.get(student.id, 'Present') %}
+                <tr>
+                    <td class="font-monospace">{{ student.register_number }}</td>
+                    <td>{{ student.name }}</td>
+                    <td>{{ student.department }}</td>
+                    <td class="text-center">
+                        <div class="btn-group" role="group">
+                            <input type="radio" class="btn-check attendance-toggle" name="status_{{ student.id }}" id="present_{{ student.id }}" 
+                                   data-student-id="{{ student.id }}" value="Present" {% if status == 'Present' %}checked{% endif %}>
+                            <label class="btn btn-outline-success btn-sm" for="present_{{ student.id }}">Present</label>
+
+                            <input type="radio" class="btn-check attendance-toggle" name="status_{{ student.id }}" id="absent_{{ student.id }}" 
+                                   data-student-id="{{ student.id }}" value="Absent" {% if status == 'Absent' %}checked{% endif %}>
+                            <label class="btn btn-outline-danger btn-sm" for="absent_{{ student.id }}">Absent</label>
+                            
+                            <input type="radio" class="btn-check attendance-toggle" name="status_{{ student.id }}" id="malpractice_{{ student.id }}" 
+                                   data-student-id="{{ student.id }}" value="Malpractice" {% if status == 'Malpractice' %}checked{% endif %}>
+                            <label class="btn btn-outline-warning btn-sm" for="malpractice_{{ student.id }}">Malpractice</label>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+  <div id="attendanceToast" class="toast text-bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="d-flex">
+      <div class="toast-body">
+        Attendance updated successfully.
+      </div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+  </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const toggles = document.querySelectorAll('.attendance-toggle');
+        const toastEl = document.getElementById('attendanceToast');
+        const toast = new bootstrap.Toast(toastEl, {delay: 2000});
+
+        toggles.forEach(toggle => {
+            toggle.addEventListener('change', function() {
+                const studentId = this.getAttribute('data-student-id');
+                const status = this.value;
+                const scheduleId = parseInt("{{ schedule.id or 0 }}");
+
+
+                fetch('{{ url_for("exam.update_attendance") }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        student_id: studentId,
+                        schedule_id: scheduleId,
+                        status: status
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if(data.success) {
+                        toastEl.classList.remove('text-bg-danger');
+                        toastEl.classList.add('text-bg-success');
+                        toastEl.querySelector('.toast-body').textContent = 'Attendance marked as ' + status;
+                        toast.show();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    toastEl.classList.remove('text-bg-success');
+                    toastEl.classList.add('text-bg-danger');
+                    toastEl.querySelector('.toast-body').textContent = 'Error updating attendance';
+                    toast.show();
+                });
+            });
+        });
+    });
+</script>
+{% endblock %}

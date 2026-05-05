@@ -1,0 +1,101 @@
+.ht-container {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 1.5rem;
+  align-items: start;
+  margin-top: 1.5rem;
+}
+
+.ht-card {
+  padding: 2rem;
+}
+
+.ht-hint {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  margin-bottom: 1.2rem;
+  line-height: 1.5;
+}
+
+.ht-input-row {
+  display: flex;
+  gap: 0.8rem;
+}
+
+.ht-input {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.95rem;
+  outline: none;
+  transition: all 0.2s;
+  background: var(--surface-2);
+  color: var(--text);
+}
+.ht-input:focus {
+  border-color: var(--navy);
+  box-shadow: 0 0 0 3px rgba(15,26,61,0.08);
+  background: #fff;
+}
+
+.ht-btn {
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+}
+
+.ht-btn-large {
+  padding: 1rem 2.5rem;
+  font-size: 1rem;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8rem;
+}
+
+.ht-student-view {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1rem 0;
+}
+
+
+.ht-error {
+  margin-top: 1rem;
+  padding: 0.8rem 1rem;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #dc2626;
+  font-size: 0.85rem;
+}
+
+.ht-instructions .ht-list {
+  padding-left: 1.2rem;
+  margin: 0;
+}
+.ht-instructions .ht-list li {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-bottom: 0.8rem;
+  line-height: 1.5;
+}
+
+.ht-spinner {
+  display: inline-block;
+  width: 16px; height: 16px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: htSpin 0.7s linear infinite;
+}
+@keyframes htSpin { to { transform: rotate(360deg); } }
+
+@media (max-width: 900px) {
+  .ht-container {
+    grid-template-columns: 1fr;
+  }
+}

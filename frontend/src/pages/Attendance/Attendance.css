@@ -1,0 +1,467 @@
+/* ── ESE Attendance Page ──────────────────────────────────── */
+
+.ese-page {
+  padding-bottom: 6rem;
+}
+
+/* ── Search card ── */
+.ese-search-card { margin-top: 1.5rem; }
+
+.ese-search-row {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.ese-input-wrap {
+  flex: 1;
+  min-width: 200px;
+}
+.ese-input-wrap label {
+  display: block;
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin-bottom: 0.4rem;
+}
+.ese-code-input {
+  width: 100%;
+  padding: 0.65rem 1rem;
+  background: var(--surface-2);
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  outline: none;
+  transition: all 0.2s;
+  text-transform: uppercase;
+}
+.ese-code-input:focus {
+  border-color: var(--navy);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(15,26,61,0.08);
+}
+
+.ese-load-btn {
+  padding: 0.65rem 1.8rem;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  min-width: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.ese-error {
+  margin-top: 0.8rem;
+  color: #dc2626;
+  font-size: 0.82rem;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  padding: 0.5rem 0.8rem;
+  border-radius: 6px;
+}
+
+/* ── Spinner ── */
+.ese-spinner {
+  display: inline-block;
+  width: 16px; height: 16px;
+  border: 2px solid rgba(201,162,39,0.3);
+  border-top-color: var(--gold-light);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Course Info ── */
+.ese-info-card { margin-top: 1rem; }
+
+.ese-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.ese-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.ese-info-label {
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.ese-info-val {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--navy);
+}
+.ese-info-val.gold { color: var(--gold); font-size: 1.05rem; letter-spacing: 0.04em; }
+
+.ese-date-input {
+  padding: 0.4rem 0.7rem;
+  background: var(--surface-2);
+  border: 1.5px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+  outline: none;
+  width: 100%;
+  transition: border-color 0.2s;
+}
+.ese-date-input:focus { border-color: var(--navy); }
+
+/* ── Session Toggle ── */
+.ese-session-toggle {
+  display: flex;
+  gap: 0.4rem;
+}
+.ese-session-btn {
+  padding: 0.35rem 1rem;
+  border-radius: 6px;
+  border: 1.5px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.ese-session-btn.active {
+  background: var(--navy);
+  color: var(--gold-light);
+  border-color: var(--navy);
+}
+
+/* ── Toolbar ── */
+.ese-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  margin: 1rem 0 0.6rem;
+  padding: 0.8rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.ese-counts {
+  display: flex;
+  gap: 1.2rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.ese-count {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+.ese-count.present strong { color: #16a34a; }
+.ese-count.absent  strong { color: #dc2626; }
+.ese-count.total   strong { color: var(--navy); }
+
+.ese-actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* ── Table ── */
+.ese-table-card { padding: 0; overflow: hidden; }
+.ese-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+}
+/* ── Row tinting based on status ── */
+
+/* Row tinting based on status */
+.ese-table tbody tr.ese-row-absent {
+  background-color: #fff1f2 !important;
+}
+.ese-table tbody tr.ese-row-malpractice {
+  background-color: #fffbeb !important;
+}
+.ese-table tbody tr {
+  transition: background-color 0.3s;
+}
+
+.ese-count.mp {
+  color: #d97706;
+  background: #fffbeb;
+  border: 1px solid #fef3c7;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+.ese-table thead th {
+  padding: 0.75rem 0.9rem;
+  text-align: left;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #fff;
+  background: var(--navy);
+  border-bottom: 2px solid var(--gold);
+}
+.ese-table tbody tr {
+  transition: background 0.15s;
+}
+.ese-table tbody tr:hover { background: #f1f5f9; }
+.ese-table tbody td {
+  padding: 0.65rem 0.9rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  vertical-align: middle;
+}
+.ese-table tbody tr:last-child td { border-bottom: none; }
+
+/* Absent row highlight */
+.ese-row-absent {
+  background: #fff7f7 !important;
+}
+.ese-row-absent:hover { background: #ffecec !important; }
+
+.ese-sno { color: var(--text-muted); font-weight: 500; text-align: center; }
+.ese-regno { font-family: monospace; font-size: 0.82rem; letter-spacing: 0.03em; font-weight: 600; }
+.ese-name { font-weight: 500; }
+.ese-dept { }
+
+.ese-dept-badge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+/* ── Toggle Switch ── */
+.ese-status-cell { text-align: center; }
+
+/* ── Bottom Sticky Bar ── */
+.ese-bottom-bar {
+  position: fixed;
+  bottom: 0;
+  left: var(--sidebar-w);
+  right: 0;
+  background: var(--surface);
+  border-top: 2px solid var(--border);
+  padding: 0.9rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 100;
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
+}
+
+@media (max-width: 768px) {
+  .ese-bottom-bar { left: 0; padding: 0.7rem 1rem; }
+  .ese-toolbar { flex-direction: column; align-items: flex-start; }
+  .ese-info-grid { grid-template-columns: 1fr 1fr; }
+}
+
+/* ── Extra action buttons ── */
+.ese-cover-btn {
+  background: #fefce8;
+  border-color: #fde68a;
+  color: #92400e;
+}
+.ese-cover-btn:hover {
+  background: #fef9c3;
+  border-color: #fbbf24;
+}
+
+.ese-desp-btn {
+  background: linear-gradient(135deg, #1e3a5f, #1a2a5e);
+  color: #e8c84a;
+  border: none;
+  font-weight: 600;
+}
+
+.ese-desp-btn:hover {
+  box-shadow: 0 4px 15px rgba(15,26,61,0.35);
+  transform: translateY(-1px);
+}
+
+/* ── Pagination ── */
+.ese-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  background: var(--surface-2);
+  border-top: 1px solid var(--border);
+}
+
+.ese-page-info {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.ese-page-info strong {
+  color: var(--navy);
+  font-size: 1rem;
+}
+
+/* ── Clickable Mono ── */
+.mono.clickable {
+  cursor: pointer;
+  color: var(--navy);
+  transition: all 0.2s;
+  text-decoration: underline dotted transparent;
+}
+.mono.clickable:hover {
+  color: var(--gold);
+  text-decoration-color: var(--gold);
+}
+
+.clickable {
+  cursor: pointer;
+}
+
+
+/* -- Segmented Status Control -- */
+.status-segmented {
+  display: flex;
+  background: var(--surface-2);
+  padding: 3px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  width: fit-content;
+  margin: 0 auto;
+}
+
+.status-btn {
+  border: none;
+  background: transparent;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 38px;
+  color: var(--text-muted);
+}
+
+.status-btn:hover {
+  background: rgba(0,0,0,0.03);
+}
+
+.status-btn.active.present {
+  background: #16a34a;
+  color: white;
+  box-shadow: 0 2px 8px rgba(22, 163, 74, 0.3);
+}
+
+.status-btn.active.absent {
+  background: #dc2626;
+  color: white;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3);
+}
+
+.status-btn.active.malpractice {
+  background: #d97706;
+  color: white;
+  box-shadow: 0 2px 8px rgba(217, 119, 6, 0.3);
+}
+
+.ese-row-absent {
+  background-color: #fef2f2 !important;
+}
+
+.ese-row-absent .ese-name,
+.ese-row-absent .ese-regno {
+  color: #991b1b;
+}
+
+.ese-row-malpractice {
+  background-color: #fffbeb !important;
+}
+
+.ese-row-malpractice .ese-name,
+.ese-row-malpractice .ese-regno {
+  color: #92400e;
+}
+
+
+/* -- PDF Selector -- */
+.ese-pdf-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--surface-2);
+  padding: 2px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.ese-dept-select {
+  padding: 0.4rem 0.6rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  color: var(--navy);
+  outline: none;
+  cursor: pointer;
+}
+
+.ese-dept-select:focus {
+  color: var(--gold-vivid);
+}
+ 
+/* Search Box */
+.ese-search-box {
+  display: flex;
+  align-items: center;
+  background: white;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  padding: 0 0.8rem;
+  height: 38px;
+  gap: 0.6rem;
+  transition: all 0.2s;
+  width: 220px;
+}
+
+.ese-search-box:focus-within {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.1);
+}
+
+.ese-search-box svg {
+  color: var(--text-muted);
+}
+
+.ese-search-box input {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 0.85rem;
+  width: 100%;
+  color: var(--text);
+}
+
+.ese-search-box input::placeholder {
+  color: #94a3b8;
+}

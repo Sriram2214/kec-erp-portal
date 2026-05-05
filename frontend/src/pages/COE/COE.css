@@ -1,0 +1,145 @@
+.coe-grid {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 1.5rem;
+}
+
+.coe-tools .tools-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.tool-item {
+  padding: 1rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.tool-info strong {
+  display: block;
+  font-size: 0.9rem;
+  color: #1a1a1a;
+}
+
+.tool-info p {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.empty-row {
+  text-align: center;
+  padding: 2rem;
+  color: #94a3b8;
+}
+
+/* ── Department Selector ── */
+.header-flex {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+.dept-selector-wrap {
+  position: relative;
+  z-index: 100;
+}
+
+.dept-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: white;
+  border: 2px solid #d4af37;
+  padding: 8px 16px;
+  border-radius: 99px;
+  color: #1a1a1a;
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.1);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.dept-toggle-btn:hover {
+  background: #d4af3711;
+  transform: translateY(-1px);
+}
+
+.dept-dropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 220px;
+  background: white;
+  border: 1px solid #eee;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+  overflow: hidden;
+  padding: 8px;
+}
+
+.dept-option {
+  padding: 10px 15px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #444;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dept-option:hover {
+  background: #f8fafc;
+  color: #d4af37;
+  padding-left: 20px;
+}
+
+.dept-quick-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 30px;
+  padding: 15px;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px dashed #cbd5e1;
+}
+
+.dept-chip {
+  padding: 6px 14px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dept-chip:hover {
+  border-color: #d4af37;
+  color: #d4af37;
+}
+
+.dept-chip.active {
+  background: #1a1a1a;
+  border-color: #1a1a1a;
+  color: #d4af37;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+}
+
+@media (max-width: 1000px) {
+  .coe-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,87 @@
+.departments-page {
+  padding: 1rem;
+}
+
+.actions-bar {
+  margin-bottom: 2rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.depts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
+}
+
+.dept-card {
+  display: flex;
+  align-items: center;
+  padding: 1.5rem;
+  transition: transform 0.2s, box-shadow 0.2s;
+  position: relative;
+}
+
+.dept-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+}
+
+.dept-icon-box {
+  width: 50px;
+  height: 50px;
+  background: rgba(201, 162, 39, 0.1);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 1.25rem;
+}
+
+.dept-info {
+  flex: 1;
+}
+
+.dept-code {
+  font-family: 'Space Mono', monospace;
+  font-weight: 700;
+  font-size: 1.2rem;
+  color: var(--gold-vivid);
+  letter-spacing: 1px;
+}
+
+.dept-full-name {
+  font-size: 0.9rem;
+  color: #a0aec0;
+  margin-top: 2px;
+  line-height: 1.4;
+}
+
+.dept-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.icon-btn {
+  background: none;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+  border-radius: 8px;
+  color: #718096;
+  transition: all 0.2s;
+}
+
+.icon-btn:hover {
+  background: rgba(255,255,255,0.05);
+}
+
+.icon-btn.red:hover {
+  color: #fc8181;
+  background: rgba(245, 101, 101, 0.1);
+}
+
+.form-card {
+  margin-bottom: 2rem;
+  border-left: 4px solid var(--gold-vivid);
+}

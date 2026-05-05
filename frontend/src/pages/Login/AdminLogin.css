@@ -1,0 +1,102 @@
+.adm-login-page {
+  height: 100vh;
+  width: 100%;
+  background: #0f172a;
+  background-image: linear-gradient(rgba(30, 41, 59, 0.5) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(30, 41, 59, 0.5) 1px, transparent 1px);
+  background-size: 50px 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.adm-login-card {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 3.5rem;
+  width: 100%;
+  max-width: 440px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  position: relative;
+}
+
+.adm-header {
+  text-align: center;
+  margin-bottom: 2.5rem;
+}
+
+.adm-logo {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.adm-header h2 {
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: #f1f5f9;
+  letter-spacing: 0.1em;
+}
+
+.adm-header p {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  letter-spacing: 0.05em;
+}
+
+.adm-field {
+  margin-bottom: 2rem;
+}
+
+.adm-field label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: #94a3b8;
+  margin-bottom: 0.7rem;
+  letter-spacing: 0.05em;
+}
+
+.adm-field input {
+  width: 100%;
+  padding: 1.1rem;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  color: white;
+  outline: none;
+}
+
+.adm-field input:focus {
+  border-color: #f1f5f9;
+  box-shadow: 0 0 0 4px rgba(241, 245, 249, 0.1);
+}
+
+.adm-btn {
+  width: 100%;
+  padding: 1.1rem;
+  background: #f1f5f9;
+  color: #0f172a;
+  border: none;
+  border-radius: 8px;
+  font-weight: 900;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.adm-btn:hover {
+  background: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(255, 255, 255, 0.15);
+}
+
+.adm-error {
+  background: rgba(239, 68, 68, 0.1);
+  color: #fca5a5;
+  padding: 1rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  margin-bottom: 2rem;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  text-align: center;
+}

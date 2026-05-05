@@ -1,0 +1,176 @@
+.coe-login-wrapper {
+  height: 100vh;
+  width: 100vw;
+  background: radial-gradient(circle at center, #1a1a1a 0%, #000000 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Inter', sans-serif;
+  color: white;
+  overflow: hidden;
+  position: relative;
+}
+
+.coe-login-wrapper::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: url('/assets/building-bg.jpg') center/cover no-repeat;
+  opacity: 0.15;
+  filter: grayscale(100%);
+}
+
+.coe-login-glass {
+  width: 420px;
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 24px;
+  padding: 40px;
+  z-index: 10;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+.coe-brand {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.coe-icon-orb {
+  width: 80px;
+  height: 80px;
+  background: rgba(212, 175, 55, 0.1);
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 15px;
+  box-shadow: 0 0 20px rgba(212, 175, 55, 0.1);
+}
+
+.coe-brand h1 {
+  font-family: 'Cinzel', serif;
+  font-size: 1.4rem;
+  letter-spacing: 0.1em;
+  color: #d4af37;
+  margin-bottom: 5px;
+}
+
+.institution-tag {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #888;
+  letter-spacing: 0.05em;
+}
+
+.coe-security-banner {
+  background: rgba(212, 175, 55, 0.1);
+  padding: 8px 15px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #d4af37;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 25px;
+  border: 1px solid rgba(212, 175, 55, 0.2);
+}
+
+.coe-error-bubble {
+  background: rgba(220, 38, 38, 0.1);
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  color: #f87171;
+  padding: 12px;
+  border-radius: 10px;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 25px;
+}
+
+.coe-input-group {
+  margin-bottom: 20px;
+}
+
+.coe-input-group label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #888;
+  margin-bottom: 8px;
+  letter-spacing: 0.1em;
+}
+
+.coe-input-group input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 12px 15px;
+  color: white;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.coe-input-group input:focus {
+  outline: none;
+  border-color: #d4af37;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
+}
+
+.coe-auth-btn {
+  width: 100%;
+  background: #d4af37;
+  color: #1a1a1a;
+  border: none;
+  padding: 14px;
+  border-radius: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-top: 10px;
+}
+
+.coe-auth-btn:hover:not(:disabled) {
+  background: #e5c158;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(212, 175, 55, 0.2);
+}
+
+.coe-auth-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.coe-security-footer {
+  margin-top: 30px;
+  text-align: center;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  padding-top: 20px;
+}
+
+.footer-warning {
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: #d4af37;
+  margin-bottom: 5px;
+  letter-spacing: 0.05em;
+}
+
+.footer-trace {
+  font-size: 0.55rem;
+  color: #555;
+  letter-spacing: 0.05em;
+  line-height: 1.4;
+}

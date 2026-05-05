@@ -1,0 +1,22 @@
+.loading {
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-family: 'Cinzel', serif;
+}
+
+.empty-row {
+  text-align: center;
+  padding: 3rem !important;
+  color: var(--text-light);
+  font-style: italic;
+}
+
+.badge-gold {
+  background: var(--gold-glow);
+  color: var(--gold-vivid);
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 800;
+}

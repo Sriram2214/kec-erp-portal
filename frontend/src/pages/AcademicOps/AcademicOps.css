@@ -1,0 +1,98 @@
+.timetable-card {
+  margin-top: 1.5rem;
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+.timetable-container {
+  overflow-x: auto;
+}
+
+.timetable-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.timetable-table th {
+  background: var(--bg);
+  padding: 1rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  border-bottom: 2px solid var(--border-color);
+  min-width: 120px;
+}
+
+.timetable-table td {
+  padding: 0.5rem;
+  border: 1px solid var(--border-color);
+  height: 80px;
+  vertical-align: top;
+}
+
+.day-name {
+  background: var(--bg);
+  text-align: center;
+  vertical-align: middle !important;
+  min-width: 100px;
+}
+
+.period-cell {
+  position: relative;
+}
+
+.tt-entry {
+  background: var(--gold);
+  color: #000;
+  padding: 0.5rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  position: relative;
+}
+
+.tt-code {
+  font-weight: bold;
+}
+
+.tt-faculty {
+  font-size: 0.7rem;
+  opacity: 0.8;
+}
+
+.tt-del {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: rgba(0,0,0,0.1);
+  border: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+}
+
+.tt-del:hover {
+  background: rgba(0,0,0,0.3);
+}
+
+.tt-select {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.tt-select:hover {
+  background: var(--bg);
+}

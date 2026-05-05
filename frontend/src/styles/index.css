@@ -1,0 +1,186 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  /* ── Premium Brand Colours (Refined Blue & Gold) ── */
+  --navy:      #1a2a5e;
+  --navy-mid:  #141b33;
+  --navy-dark: #0a0f26;
+  --gold:      #c9a227;
+  --gold-light: #f3d47a;
+  --gold-vivid: #e8c84a;
+  --gold-glow: rgba(201, 162, 39, 0.3);
+  --white:     #ffffff;
+  --text-muted: rgba(255, 255, 255, 0.6);
+  --text-light: rgba(201, 162, 39, 0.5);
+
+  /* ── Surface Tokens ── */
+  --bg:          #ffffff;
+  --surface:     rgba(255, 255, 255, 0.8);
+  --surface-solid: #ffffff;
+  --surface-blur: blur(12px);
+  --border:      rgba(0, 0, 0, 0.1);
+  --text:        #000000;
+  --text-muted:  #666666;
+  
+  --shadow-soft: 0 8px 30px rgba(0, 0, 0, 0.05);
+  --shadow-elite: 0 20px 40px rgba(0, 0, 0, 0.1);
+}
+
+html, body {
+  height: 100%;
+  width: 100%;
+  font-family: 'Inter', sans-serif;
+  background: radial-gradient(circle at top right, #fdfcfb 0%, #e2d1c3 100%);
+  background-attachment: fixed;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+/* ── Elite Typography ── */
+h1, h2, h3, .card-title, .page-title {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--navy-dark);
+}
+
+/* ── Enhanced Light Card ── */
+.card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.02);
+  transition: all 0.3s ease;
+}
+.card:hover {
+  box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+}
+.card-title {
+  font-family: 'Cinzel', serif;
+  font-size: 0.95rem;
+  color: var(--navy-dark);
+  margin-bottom: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 700;
+  border-bottom: 2px solid var(--gold-light);
+  padding-bottom: 0.5rem;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+thead th {
+  padding: 0.8rem 1rem;
+  text-align: left;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #64748b;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+tbody td {
+  padding: 0.9rem 1rem;
+  color: #1e293b;
+  border-bottom: 1px solid #f1f5f9;
+}
+tbody tr:hover {
+  background: #f8fafc;
+}
+
+/* ── Buttons ── */
+.btn {
+  padding: 0.7rem 1.4rem;
+  border-radius: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-gold {
+  background: #1a1a1a !important;
+  color: var(--gold-vivid);
+  border: 1px solid #b45309;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.btn-gold:hover {
+  background: var(--navy-dark);
+  color: var(--gold-vivid);
+  box-shadow: 0 8px 25px var(--gold-glow);
+  transform: scale(1.02);
+}
+
+/* ── Inputs ── */
+.field input, .field select {
+  border-radius: 12px;
+  border: 1.5px solid var(--border);
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(4px);
+  padding: 0.8rem 1rem;
+}
+
+.field input:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 4px var(--gold-glow);
+}
+
+/* ── Modern Table ── */
+.ese-table {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.ese-table thead th {
+  background: #0a0a0a;
+  color: #d97706;
+  padding: 1rem;
+  font-family: 'Cinzel', serif;
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+}
+
+.ese-table tbody tr {
+  transition: background 0.2s;
+}
+
+.ese-table tbody tr:hover {
+  background: rgba(201, 162, 39, 0.03);
+}
+
+/* ── Staggered Animations ── */
+.fade-in {
+  animation: eliteReveal 0.6s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+}
+
+@keyframes eliteReveal {
+  from { opacity: 0; transform: translateY(20px); filter: blur(10px); }
+  to { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
+
+/* -- Coming Soon Badge -- */
+.ht-coming-soon {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: #fef3c7;
+  color: #d97706;
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 1px solid #fbbf24;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}

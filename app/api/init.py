@@ -1,7 +1,8 @@
 
 from flask import Blueprint, jsonify
 from app import db
-from app.models import User, Degree, Department, Regulation, AcademicYear, Batch
+from app.models import User, Degree, Department, Regulation, AcademicYear, Batch, Student
+import random
 
 init_bp = Blueprint('init', __name__)
 
@@ -65,6 +66,55 @@ def init_db():
                 "coe": "coe / coe123"
             }
         })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
+@init_bp.route('/api/seed-students')
+def seed_students():
+    try:
+        # Check if already seeded
+        if Student.query.count() > 100:
+            return jsonify({"status": "info", "message": "Students already seeded."})
+
+        depts = Department.query.all()
+        if not depts:
+            return jsonify({"status": "error", "message": "Please run /api/init-db first to create departments."}), 400
+            
+        batch = Batch.query.first()
+        ay = AcademicYear.query.filter_by(is_current=True).first()
+        
+        first_names = ["Abishek", "Akash", "Anand", "Aravind", "Ashwin", "Balaji", "Bharath", "Chandru", "Dhanush", "Dharani", "Dinesh", "Ganesh", "Gokul", "Hari", "Harish", "Jagan", "Jayasurya", "Karthick", "Kishore", "Logesh", "Manikandan", "Mohan", "Mukesh", "Naveen", "Nithish", "Prabhu", "Prakash", "Pranav", "Praveen", "Ragul", "Rajesh", "Ranjith", "Sakthi", "Sandeep", "Sanjay", "Saravanan", "Sathish", "Selvakumar", "Siva", "Sriram", "Suresh", "Surya", "Tamil", "Tharun", "Thirumoorthy", "Venkatesan", "Vijay", "Vikram", "Vinoth", "Vishnu"]
+        last_names = ["M", "R", "S", "B", "K", "V", "P", "A", "G", "J"]
+        
+        students = []
+        for i in range(1, 2001):
+            dept = random.choice(depts)
+            reg_no = f"911221104{str(i).zfill(3)}"
+            name = f"{random.choice(first_names)} {random.choice(last_names)}"
+            
+            s = Student(
+                register_number=reg_no,
+                name=name,
+                department=dept.code,
+                batch=batch.label if batch else "2021-2025",
+                academic_year=ay.id if ay else 1,
+                semester=1,
+                degree="BE",
+                regulation="R2021"
+            )
+            students.append(s)
+            
+            # Batch commit every 500 to prevent timeout/memory issues
+            if len(students) >= 500:
+                db.session.bulk_save_objects(students)
+                db.session.commit()
+                students = []
+                
+        if students:
+            db.session.bulk_save_objects(students)
+            db.session.commit()
+            
+        return jsonify({"status": "success", "message": "2000 students seeded successfully."})
     except Exception as e:
         db.session.rollback()
         return jsonify({"status": "error", "message": str(e)}), 500

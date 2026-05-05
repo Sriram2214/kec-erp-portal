@@ -85,21 +85,19 @@ export default function Login() {
       <div className="login-bg-texture" />
       <ParticleCanvas />
       
-      <div className="login-layout">
-        {/* Left Panel: The Form */}
-        <div className="login-panel-form">
-          <form className="login-card" onSubmit={handleSubmit}>
-            
-            <div className="login-branding">
-              <div className="brand-logo-ring">
-                <div className="brand-logo">
-                  <img src="/logo.png" alt="KEC Logo" />
-                </div>
+      <div className="login-centered-container">
+        <form className="login-card" onSubmit={handleSubmit}>
+          
+          <div className="login-branding">
+            <div className="brand-logo-ring">
+              <div className="brand-logo">
+                <img src="/logo.png" alt="KEC Logo" />
               </div>
-              <h1 className="brand-name">KEC PORTAL</h1>
-              <div className="brand-divider" />
-              <p className="brand-tagline">EXAMINATION MANAGEMENT SYSTEM</p>
             </div>
+            <h1 className="brand-name">KEC PORTAL</h1>
+            <div className="brand-divider" />
+            <p className="brand-tagline">EXAMINATION MANAGEMENT SYSTEM</p>
+          </div>
 
             <div className="role-selector">
               {ROLES.map(r => (
@@ -165,38 +163,7 @@ export default function Login() {
               <a href="#">FORGOT PASSWORD?</a>
               <a href="#">HELP & SUPPORT</a>
             </div>
-          </form>
-        </div>
-
-        {/* Right Panel: Visual Showcase */}
-        <div className="login-panel-visual">
-          <div className="visual-overlay" />
-          <div className="visual-content">
-            <h2 className="visual-title">KINGS <br/><span>ENGINEERING COLLEGE</span></h2>
-            <div className="visual-divider" />
-            <p className="visual-desc">
-              Empowering the next generation of engineers with state-of-the-art 
-              examination and academic management infrastructure.
-            </p>
-            <div className="visual-stats">
-              <div className="stat-item">
-                <span className="stat-num">2000+</span>
-                <span className="stat-lbl">STUDENTS</span>
-              </div>
-              <div className="stat-item">
-                <span className="stat-num">100+</span>
-                <span className="stat-lbl">FACULTY</span>
-              </div>
-              <div className="stat-item">
-                <span className="stat-num">15+</span>
-                <span className="stat-lbl">DEPARTMENTS</span>
-              </div>
-            </div>
-          </div>
-          <div className="visual-footer">
-            © 2026 KEC Portal. All rights reserved.
-          </div>
-        </div>
+        </form>
       </div>
     </div>
   )

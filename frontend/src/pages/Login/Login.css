@@ -14,7 +14,7 @@
 .login-root {
   position: fixed;
   inset: 0;
-  background: url('/bg-building.webp') center/cover no-repeat fixed;
+  background: url('/entrance-arch.webp') center/cover no-repeat fixed;
   background-color: #070d1f;
   font-family: 'Inter', sans-serif;
   overflow: hidden;
@@ -23,8 +23,8 @@
 .login-bg-texture {
   position: absolute;
   inset: 0;
-  /* Premium dark overlay to merge the background and make the card pop */
-  background: linear-gradient(135deg, rgba(7, 13, 31, 0.85) 0%, rgba(15, 26, 61, 0.7) 100%);
+  /* Premium overlay to merge the background, made more transparent to be visible */
+  background: linear-gradient(135deg, rgba(7, 13, 31, 0.5) 0%, rgba(15, 26, 61, 0.35) 100%);
   z-index: 0;
 }
 

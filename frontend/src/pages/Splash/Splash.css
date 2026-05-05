@@ -19,11 +19,11 @@
 .splash-bg {
   position: absolute;
   inset: -5%;
-  background-image: url('/src/assets/building-bg.png');
+  background-image: url('/entrance-arch.webp');
   background-size: cover;
   background-position: center;
   z-index: 0;
-  filter: brightness(0.4) saturate(1.2);
+  filter: brightness(0.7) saturate(1.1);
   animation: splashBgZoom 8s ease-out forwards;
 }
 

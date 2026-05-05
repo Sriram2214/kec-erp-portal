@@ -6,16 +6,27 @@ from flask_login import current_user
 
 class AuditLogger:
     def __init__(self, log_dir="logs"):
-        if not os.path.exists(log_dir):
-            os.makedirs(log_dir)
-        
-        self.logger = logging.getLogger("audit")
-        self.logger.setLevel(logging.INFO)
-        
-        handler = logging.FileHandler(os.path.join(log_dir, "audit.log"), encoding='utf-8')
-        # Use a simple message format, we will structure the data as JSON
-        handler.setFormatter(logging.Formatter('%(message)s'))
-        self.logger.addHandler(handler)
+        # On Vercel, the file system is read-only except for /tmp
+        if os.environ.get('VERCEL') == '1' or not os.access(".", os.W_OK):
+            log_dir = "/tmp/logs"
+            
+        try:
+            if not os.path.exists(log_dir):
+                os.makedirs(log_dir)
+            
+            self.logger = logging.getLogger("audit")
+            self.logger.setLevel(logging.INFO)
+            
+            handler = logging.FileHandler(os.path.join(log_dir, "audit.log"), encoding='utf-8')
+            handler.setFormatter(logging.Formatter('%(message)s'))
+            self.logger.addHandler(handler)
+        except OSError:
+            # Fallback to console logging if file system is completely locked
+            self.logger = logging.getLogger("audit_fallback")
+            self.logger.setLevel(logging.INFO)
+            handler = logging.StreamHandler()
+            handler.setFormatter(logging.Formatter('%(message)s'))
+            self.logger.addHandler(handler)
 
     def log(self, action, details=None):
         """

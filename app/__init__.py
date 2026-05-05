@@ -11,7 +11,9 @@ login_manager = LoginManager()
 migrate = Migrate()
 csrf = CSRFProtect()
 limiter = Limiter(key_func=get_remote_address, default_limits=["2000 per day", "500 per hour"])
+from flask_compress import Compress
 # cors = CORS() # REMOVED DUE TO INSTALL ISSUE
+compress = Compress()
 login_manager.login_view = "auth.login"
 login_manager.login_message_category = "info"
 
@@ -32,6 +34,7 @@ def create_app(config_class=Config):
     migrate.init_app(app, db)
     csrf.init_app(app)
     limiter.init_app(app)
+    compress.init_app(app)
 
     @app.after_request
     def add_cors_headers(response):

@@ -62,9 +62,9 @@ class Student(db.Model):
     id              = db.Column(db.Integer, primary_key=True)
     register_number = db.Column(db.String(20), unique=True, nullable=False)
     name            = db.Column(db.String(100), nullable=False)
-    department      = db.Column(db.String(50), nullable=False)   # dept code
-    batch           = db.Column(db.String(20), nullable=False)
-    academic_year   = db.Column(db.Integer, nullable=False)      # 1 / 2 / 3 / 4
+    department      = db.Column(db.String(50), index=True, nullable=False)   # dept code
+    batch           = db.Column(db.String(20), index=True, nullable=False)
+    academic_year   = db.Column(db.Integer, index=True, nullable=False)      # 1 / 2 / 3 / 4
     degree          = db.Column(db.String(20), default='BE')
     regulation      = db.Column(db.String(20), default='R2021')
     semester        = db.Column(db.Integer, default=1)

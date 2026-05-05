@@ -1,16 +1,25 @@
 {
   "version": 2,
-  "routes": [
+  "rewrites": [
     {
-      "src": "/api/(.*)",
-      "dest": "/api/index.py"
+      "source": "/api/(.*)",
+      "destination": "/api/index.py"
     },
     {
-      "handle": "filesystem"
+      "source": "/assets/(.*)",
+      "destination": "/frontend/dist/assets/$1"
     },
     {
-      "src": "/(.*)",
-      "dest": "/index.html"
+      "source": "/logo.png",
+      "destination": "/frontend/dist/logo.png"
+    },
+    {
+      "source": "/favicon.ico",
+      "destination": "/frontend/dist/favicon.ico"
+    },
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/frontend/dist/index.html"
     }
   ]
 }

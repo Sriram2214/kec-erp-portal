@@ -1093,7 +1093,9 @@ def attendance_status_report_pdf():
     page_w = A4[0] - 24*mm
     story = []
 
-    story.append(Paragraph(f'<b>KEC EXAMINATION ATTENDANCE STATUS – {report_date.strftime("%d.%m.%Y")}</b>', ParagraphStyle('T', alignment=TA_CENTER, fontSize=14, textColor=NAVY)))
+    # ── Header image
+    get_institutional_header(story, page_w)
+    story.append(Paragraph(f'<b>KEC EXAMINATION ATTENDANCE STATUS – {report_date.strftime("%d.%m.%Y")}</b>', ParagraphStyle('T', alignment=TA_CENTER, fontSize=12, textColor=NAVY)))
     story.append(Spacer(1, 5*mm))
 
     data = [[Paragraph('<b>SNo</b>', ParagraphStyle('TH',textColor=WHITE,alignment=TA_CENTER)), Paragraph('<b>Course</b>', ParagraphStyle('TH',textColor=WHITE)), Paragraph('<b>Sess</b>', ParagraphStyle('TH',textColor=WHITE)), Paragraph('<b>Total</b>', ParagraphStyle('TH',textColor=WHITE,alignment=TA_CENTER)), Paragraph('<b>Present</b>', ParagraphStyle('TH',textColor=WHITE,alignment=TA_CENTER)), Paragraph('<b>Absent</b>', ParagraphStyle('TH',textColor=WHITE,alignment=TA_CENTER)), Paragraph('<b>Status</b>', ParagraphStyle('TH',textColor=WHITE,alignment=TA_CENTER))]]
@@ -1136,7 +1138,9 @@ def missing_attendance_report_pdf():
     page_w = A4[0] - 30*mm
     story = []
 
-    story.append(Paragraph('<b>MISSING ATTENDANCE RECORDS ALERT</b>', ParagraphStyle('T', alignment=TA_CENTER, fontSize=16, textColor=RED)))
+    # ── Header image
+    get_institutional_header(story, page_w)
+    story.append(Paragraph('<b>MISSING ATTENDANCE RECORDS ALERT</b>', ParagraphStyle('T', alignment=TA_CENTER, fontSize=14, textColor=RED)))
     story.append(Paragraph(f'<b>Date: {report_date.strftime("%d.%m.%Y")}</b>', ParagraphStyle('D', alignment=TA_CENTER, fontSize=10)))
     story.append(Spacer(1, 6*mm))
 

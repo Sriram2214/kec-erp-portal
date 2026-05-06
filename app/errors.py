@@ -14,7 +14,7 @@ def register_error_handlers(app):
         db.session.rollback()
         logging.error(f"SERVER ERROR: {error} | Path: {request.path}")
         if request.path.startswith('/api/'):
-            return jsonify({'message': 'Internal server error', 'status': 500}), 500
+            return jsonify({'message': f'Internal server error: {str(error)}', 'status': 500}), 500
         return render_template('errors/500.html', title='Internal Server Error'), 500
 
     @app.errorhandler(429)

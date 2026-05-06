@@ -25,32 +25,42 @@ from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from reportlab.pdfgen import canvas
 
 # ── Constants & Helpers ──────────────────────────────────────────────
-NAVY  = colors.HexColor('#1a2a5e')
-GOLD  = colors.HexColor('#c9a227')
-RED   = colors.HexColor('#dc2626')
-LOGO_PATH = os.path.join(os.getcwd(), 'frontend', 'public', 'logo.png')
+NAVY       = colors.HexColor('#1a2a5e')
+GOLD       = colors.HexColor('#c9a227')
+RED        = colors.HexColor('#dc2626')
+LOGO_PATH  = os.path.join(os.getcwd(), 'frontend', 'public', 'logo.png')
+HEADER_IMG = os.path.join(os.getcwd(), 'frontend', 'public', 'header.jpg')
 
 def get_institutional_header(story, page_w):
-    styles = getSampleStyleSheet()
-    hdr_center = Paragraph(
-        '<b>KINGS ENGINEERING COLLEGE</b><br/>'
-        '<font size=8><b>AN AUTONOMOUS INSTITUTION</b></font><br/>'
-        '<font size=7>ACCREDITED WITH NAAC AND AFFILIATED TO ANNA UNIVERSITY</font><br/>'
-        '<font size=7>Chennai-Bangalore Highway, Irungattukottai, Sriperumbudur, Chennai – 602 117.</font><br/>'
-        '<font size=7>Ph.: 044 – 71224401 -08. Fax: 044 – 71224410</font>',
-        ParagraphStyle('HDR_C', fontName='Helvetica-Bold', fontSize=16, textColor=NAVY, alignment=TA_CENTER, leading=16)
-    )
-    if os.path.exists(LOGO_PATH):
-        logo_img = RLImage(LOGO_PATH, width=0.85*inch, height=0.85*inch)
-        header_table = Table([[logo_img, hdr_center, logo_img]], colWidths=[1.1*inch, page_w - 2.2*inch, 1.1*inch])
+    """Insert the official KEC letterhead image as the PDF header."""
+    if os.path.exists(HEADER_IMG):
+        # Use the real header image — full width, proportional height
+        img_aspect = 6.5   # header.jpg is ~1015×155 px → ~6.5:1 ratio
+        img_h = page_w / img_aspect
+        story.append(RLImage(HEADER_IMG, width=page_w, height=img_h))
+        story.append(Spacer(1, 1*mm))
     else:
-        header_table = Table([['', hdr_center, '']], colWidths=[1.1*inch, page_w - 2.2*inch, 1.1*inch])
-    
-    header_table.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('ALIGN', (0,0), (-1,-1), 'CENTER')]))
-    story.append(header_table)
-    story.append(Spacer(1, 1*mm))
+        # Fallback: rendered text header
+        styles = getSampleStyleSheet()
+        hdr_center = Paragraph(
+            '<b>KINGS ENGINEERING COLLEGE</b><br/>'
+            '<font size=8><b>AN AUTONOMOUS INSTITUTION</b></font><br/>'
+            '<font size=7>ACCREDITED WITH NAAC AND AFFILIATED TO ANNA UNIVERSITY</font><br/>'
+            '<font size=7>Chennai-Bangalore Highway, Irungattukottai, Sriperumbudur, Chennai – 602 117.</font><br/>'
+            '<font size=7>Ph.: 044 – 71224401 -08. Fax: 044 – 71224410</font>',
+            ParagraphStyle('HDR_C', fontName='Helvetica-Bold', fontSize=16, textColor=NAVY, alignment=TA_CENTER, leading=16)
+        )
+        if os.path.exists(LOGO_PATH):
+            logo_img = RLImage(LOGO_PATH, width=0.85*inch, height=0.85*inch)
+            header_table = Table([[logo_img, hdr_center, logo_img]], colWidths=[1.1*inch, page_w - 2.2*inch, 1.1*inch])
+        else:
+            header_table = Table([['', hdr_center, '']], colWidths=[1.1*inch, page_w - 2.2*inch, 1.1*inch])
+        header_table.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('ALIGN', (0,0), (-1,-1), 'CENTER')]))
+        story.append(header_table)
+        story.append(Spacer(1, 1*mm))
     story.append(HRFlowable(width='100%', thickness=1.5, color=colors.black))
     story.append(Spacer(1, 2*mm))
+
 
 # ── ESE Attendance ──
 

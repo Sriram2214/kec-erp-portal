@@ -12,9 +12,11 @@ def register_error_handlers(app):
     @app.errorhandler(500)
     def internal_error(error):
         db.session.rollback()
-        logging.error(f"SERVER ERROR: {error} | Path: {request.path}")
+        import traceback
+        tb = traceback.format_exc()
+        logging.error(f"SERVER ERROR: {error} | Path: {request.path} | Traceback: {tb}")
         if request.path.startswith('/api/'):
-            return jsonify({'message': f'Internal server error: {str(error)}', 'status': 500}), 500
+            return jsonify({'message': f'Internal server error: {str(error)}', 'traceback': tb, 'status': 500}), 500
         return render_template('errors/500.html', title='Internal Server Error'), 500
 
     @app.errorhandler(429)

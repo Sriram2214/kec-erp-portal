@@ -21,13 +21,11 @@ def api_login():
         if username.lower() == 'admin' and password == 'admin123':
             log_msg += "BYPASS: Emergency Admin Access Granted.\n"
             login_user(user)
-            with open('logs/login_debug.txt', 'a') as f: f.write(log_msg)
             return jsonify({'message': 'OK', 'user': {'id': user.id, 'username': user.username, 'role': 'admin'}})
         
         if username.lower() == 'coe' and password == 'coe123':
             log_msg += "BYPASS: Emergency COE Access Granted.\n"
             login_user(user)
-            with open('logs/login_debug.txt', 'a') as f: f.write(log_msg)
             return jsonify({'message': 'OK', 'user': {'id': user.id, 'username': user.username, 'role': 'coe'}})
         # ──────────────────────────────────────────────────────────────
 
@@ -38,12 +36,18 @@ def api_login():
             req_role = data.get('role', '').lower()
             if req_role and user.role.lower() != req_role:
                 log_msg += f"ROLE ERROR: Required '{req_role}', but DB has '{user.role.lower()}'\n"
-                with open('logs/login_debug.txt', 'a') as f: f.write(log_msg)
+                try:
+                    if not os.environ.get('VERCEL'):
+                        with open('logs/login_debug.txt', 'a') as f: f.write(log_msg)
+                except: pass
                 return jsonify({'message': f'Invalid role selection for this account.'}), 401
 
             login_user(user)
             log_msg += "RESULT: Login Success.\n"
-            with open('logs/login_debug.txt', 'a') as f: f.write(log_msg)
+            try:
+                if not os.environ.get('VERCEL'):
+                    with open('logs/login_debug.txt', 'a') as f: f.write(log_msg)
+            except: pass
             return jsonify({'message': 'OK', 'user': {
                 'id': user.id, 'username': user.username, 'role': user.role
             }})
@@ -52,7 +56,12 @@ def api_login():
     else:
         log_msg += f"RESULT: User '{username}' not found.\n"
         
-    with open('logs/login_debug.txt', 'a') as f: f.write(log_msg)
+    try:
+        # Only log locally
+        if not os.environ.get('VERCEL'):
+            with open('logs/login_debug.txt', 'a') as f: f.write(log_msg)
+    except: pass
+    
     return jsonify({'message': 'Invalid credentials'}), 401
 
 @api.route('/logout', methods=['POST'])

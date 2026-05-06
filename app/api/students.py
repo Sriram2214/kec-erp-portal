@@ -183,7 +183,7 @@ def bulk_upload_students():
             if not val: continue
             v = str(val).strip().upper()
             if 'NAME' in v and 'FATHER' not in v: col_map['name'] = i
-            elif 'REGISTER NUMBER' in v or 'REG NO' in v or 'REGNO' in v: col_map['reg'] = i
+            elif 'REGISTER NUMBER' in v or 'REG NO' in v or 'REGNO' in v or 'STUDENT ID' in v: col_map['reg'] = i
             elif 'DEPARTMENT' in v or 'DEPT' in v or 'BRANCH' in v: col_map['dept'] = i
             elif 'DEGREE' in v: col_map['deg'] = i
             elif 'BATCH' in v: col_map['bt'] = i
@@ -205,7 +205,7 @@ def bulk_upload_students():
         logging.error(f"Error fetching existing regs: {e}")
         existing_regs = set()
 
-    for row_num, row in enumerate(ws.iter_rows(min_row=3, values_only=True), start=3):
+    for row_num, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
         if not any(cell is not None and str(cell).strip() != '' for cell in row):
             continue
         try:
@@ -217,9 +217,18 @@ def bulk_upload_students():
 
             deg   = get_v('deg', 'BE')
             dept  = get_v('dept').upper()
-            bt    = get_v('bt')
+            
+            # If batch column index wasn't found, get_v('bt') will return the department again because col_map['bt'] defaults to 2.
+            # So check if the value is actually a batch-like string, otherwise default.
+            raw_bt = get_v('bt')
+            bt = raw_bt if '-' in raw_bt or len(raw_bt) > 5 else '2023-2027'
+            
             reg_n = get_v('reg_n', 'R2021')
             reg   = get_v('reg').upper()
+            
+            # Skip the 'tip' row from our own template
+            if reg == 'E.G. 211CS001' or 'e.g.' in reg.lower():
+                continue
             name  = get_v('name')
             try: yr = int(float(get_v('yr') or 1))
             except: yr = 1

@@ -121,7 +121,8 @@ def get_all_master():
             {'id': 5, 'code': 'ECE', 'name': 'Electronics and Communication Engineering'},
             {'id': 6, 'code': 'IT', 'name': 'Information Technology'},
             {'id': 7, 'code': 'MECH', 'name': 'Mechanical Engineering'},
-            {'id': 8, 'code': 'RAA', 'name': 'Robotics and Automation'}
+            {'id': 8, 'code': 'CIVIL', 'name': 'Civil Engineering'},
+            {'id': 9, 'code': 'RAA', 'name': 'Robotics and Automation'}
         ]
     if not degrees:
         degrees = [

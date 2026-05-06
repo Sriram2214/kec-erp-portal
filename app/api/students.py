@@ -176,6 +176,24 @@ def bulk_upload_students():
         logging.error(f"Student Excel read error: {e}")
         return jsonify({'message': f'Cannot read Excel file: {str(e)}'}), 400
 
+    # Auto-detect column mapping by scanning first 2 rows
+    col_map = {'deg': 0, 'dept': 1, 'bt': 2, 'reg_n': 3, 'reg': 4, 'name': 5, 'yr': 6, 'sem': 7, 'email': 8, 'phone': 9, 'dob': 10}
+    for row in ws.iter_rows(min_row=1, max_row=2, values_only=True):
+        for i, val in enumerate(row):
+            if not val: continue
+            v = str(val).strip().upper()
+            if 'NAME' in v and 'FATHER' not in v: col_map['name'] = i
+            elif 'REGISTER NUMBER' in v or 'REG NO' in v or 'REGNO' in v: col_map['reg'] = i
+            elif 'DEPARTMENT' in v or 'DEPT' in v or 'BRANCH' in v: col_map['dept'] = i
+            elif 'DEGREE' in v: col_map['deg'] = i
+            elif 'BATCH' in v: col_map['bt'] = i
+            elif 'REGULATION' in v: col_map['reg_n'] = i
+            elif 'YEAR' in v: col_map['yr'] = i
+            elif 'SEM' in v: col_map['sem'] = i
+            elif 'EMAIL' in v: col_map['email'] = i
+            elif 'PHONE' in v or 'MOBILE' in v: col_map['phone'] = i
+            elif 'DOB' in v or 'DATE OF BIRTH' in v: col_map['dob'] = i
+
     added, skipped, errors = 0, 0, []
     try:
         existing_regs = set(
@@ -191,17 +209,25 @@ def bulk_upload_students():
         if not any(cell is not None and str(cell).strip() != '' for cell in row):
             continue
         try:
-            deg   = str(row[0] or 'BE').strip()
-            dept  = str(row[1] or '').strip().upper()
-            bt    = str(row[2] or '').strip()
-            reg_n = str(row[3] or 'R2021').strip()
-            reg   = str(row[4] or '').strip().upper()
-            name  = str(row[5] or '').strip()
-            yr    = int(float(str(row[6] or 1)))
-            sem   = int(float(str(row[7] or 1)))
-            email = str(row[8] or '').strip()
-            phone = str(row[9] or '').strip()
-            dob   = str(row[10]).strip() if row[10] not in (None, '') else ''
+            def get_v(key, def_val=''):
+                idx = col_map[key]
+                if idx < len(row) and row[idx] is not None:
+                    return str(row[idx]).strip()
+                return def_val
+
+            deg   = get_v('deg', 'BE')
+            dept  = get_v('dept').upper()
+            bt    = get_v('bt')
+            reg_n = get_v('reg_n', 'R2021')
+            reg   = get_v('reg').upper()
+            name  = get_v('name')
+            try: yr = int(float(get_v('yr') or 1))
+            except: yr = 1
+            try: sem = int(float(get_v('sem') or 1))
+            except: sem = 1
+            email = get_v('email')
+            phone = get_v('phone')
+            dob   = get_v('dob')
 
             if not all([reg, name, dept, bt]):
                 errors.append(f'Row {row_num}: Missing reg/name/dept/batch')

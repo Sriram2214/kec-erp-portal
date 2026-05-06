@@ -28,15 +28,17 @@ from reportlab.pdfgen import canvas
 NAVY       = colors.HexColor('#1a2a5e')
 GOLD       = colors.HexColor('#c9a227')
 RED        = colors.HexColor('#dc2626')
-LOGO_PATH  = os.path.join(os.getcwd(), 'frontend', 'public', 'logo.png')
-HEADER_IMG = os.path.join(os.getcwd(), 'frontend', 'public', 'header.jpg')
+# Resolve paths relative to this file's location (app/api/) → go up 2 dirs to project root
+_ROOT      = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+LOGO_PATH  = os.path.join(_ROOT, 'frontend', 'public', 'logo.png')
+HEADER_IMG = os.path.join(_ROOT, 'frontend', 'public', 'header.png')  # PNG for ReportLab compat
+HEADER_ASPECT = 847 / 135  # actual image pixel ratio (width / height)
 
 def get_institutional_header(story, page_w):
     """Insert the official KEC letterhead image as the PDF header."""
     if os.path.exists(HEADER_IMG):
         # Use the real header image — full width, proportional height
-        img_aspect = 6.5   # header.jpg is ~1015×155 px → ~6.5:1 ratio
-        img_h = page_w / img_aspect
+        img_h = page_w / HEADER_ASPECT
         story.append(RLImage(HEADER_IMG, width=page_w, height=img_h))
         story.append(Spacer(1, 1*mm))
     else:

@@ -224,3 +224,28 @@
   margin-top: 0.4rem; padding-left: 1.2rem;
   font-size: 0.75rem; color: #dc2626;
 }
+
+/* Pagination */
+.filter-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 1rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid #f1f5f9;
+}
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+.page-info {
+  font-size: 0.82rem;
+  color: #64748b;
+}
+.page-info strong {
+  color: var(--navy-dark);
+}
+@media (max-width: 600px) {
+  .filter-footer { flex-direction: column; gap: 0.8rem; text-align: center; }
+}

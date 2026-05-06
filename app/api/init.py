@@ -80,3 +80,23 @@ def init_db():
     except Exception as e:
         db.session.rollback()
         return jsonify({"status": "error", "message": str(e)}), 500
+
+@init_bp.route('/api/debug-branding')
+def debug_branding():
+    from app.utils.pdf import HEADER_IMG
+    import os
+    res = {
+        'path': HEADER_IMG,
+        'exists': os.path.exists(HEADER_IMG),
+        'cwd': os.getcwd(),
+        'abs_path': os.path.abspath(HEADER_IMG)
+    }
+    if res['exists']:
+        res['size'] = os.path.getsize(HEADER_IMG)
+        try:
+            from PIL import Image
+            img = Image.open(HEADER_IMG)
+            res['pil_info'] = f"{img.format} {img.size}"
+        except Exception as e:
+            res['pil_error'] = str(e)
+    return res

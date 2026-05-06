@@ -40,7 +40,7 @@
   letter-spacing: 0.08em;
   outline: none;
   transition: all 0.2s;
-  text-transform: uppercase;
+  cursor: pointer;
 }
 .ese-code-input:focus {
   border-color: var(--navy);
@@ -469,3 +469,6 @@
 .ese-search-box input::placeholder {
   color: #94a3b8;
 }
+
+.badge-green { background: #dcfce7; color: #166534; padding: 2px 8px; border-radius: 4px; font-weight: bold; border: 1px solid #bbf7d0; }
+.badge-red { background: #fee2e2; color: #991b1b; padding: 2px 8px; border-radius: 4px; font-weight: bold; border: 1px solid #fecaca; }

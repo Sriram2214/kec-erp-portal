@@ -83,9 +83,15 @@ export default function Attendance() {
 
   async function fetchCourses() {
     try {
+      console.log('Fetching courses...')
       const res = await api.get('/courses')
-      setCourses(res.data)
-    } catch (e) { console.error('Failed to fetch courses') }
+      console.log('Courses fetched:', res.data.length)
+      const sorted = (res.data || []).sort((a, b) => a.course_code.localeCompare(b.course_code))
+      setCourses(sorted)
+    } catch (e) { 
+      console.error('Failed to fetch courses', e)
+      alert('Failed to load courses. Please check your internet or server connection.')
+    }
   }
 
   /* ── Fetch course + students ───────────────────────── */
@@ -139,8 +145,8 @@ export default function Attendance() {
         entries: students.map(s => ({ student_id: s.id, status: s.status })),
       })
       setSaved(true)
-      const d = res.data
-      showToast(`✓ Saved ${d.saved} records — Absent: ${d.absent}, MP: ${d.malpractice}`, 'success')
+      showToast(`${students.length} records saved successfully!`, 'success')
+      // [PERFORMANCE] Don't wait for state refresh to feel fast
     } catch (e) {
       const msg = e.response?.data?.message || 'Save failed.'
       setError(msg)
@@ -230,7 +236,7 @@ export default function Attendance() {
       {/* ── Page Header ── */}
       <div className="page-header">
         <div className="breadcrumb">KEC ERP › ESE Attendance</div>
-        <div className="page-title">ESE Attendance Sheet</div>
+        <div className="page-title">ESE Attendance Sheet <small style={{ fontSize: '0.6rem', opacity: 0.5 }}>v2.0</small></div>
         <div className="page-sub">End Semester Examination — Attendance Entry</div>
       </div>
 
@@ -239,25 +245,49 @@ export default function Attendance() {
         <div className="card-title">
           <Icon.Pdf />
           <span>Load by Course Code</span>
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+            {courses.length > 0 ? (
+              <span className="badge badge-green" style={{ fontSize: '0.65rem' }}>{courses.length} Courses Loaded</span>
+            ) : (
+              <span className="badge badge-red" style={{ fontSize: '0.65rem' }}>Loading Courses...</span>
+            )}
+            <button className="btn btn-outline btn-sm" onClick={fetchCourses} title="Refresh Course List">
+              ↻
+            </button>
+          </div>
         </div>
         <div className="ese-search-row">
           <div className="ese-input-wrap">
             <label>COURSE CODE</label>
-            <input
-              ref={inputRef}
-              type="text"
-              list="course-options"
-              className="ese-code-input"
-              placeholder="e.g. GE241203"
-              value={courseCode}
-              onChange={e => { setCourseCode(e.target.value.toUpperCase()); setError('') }}
-              onKeyDown={e => e.key === 'Enter' && handleLoad()}
-            />
-            <datalist id="course-options">
-              {courses.map(c => (
-                <option key={c.id} value={c.course_code}>{c.course_title}</option>
-              ))}
-            </datalist>
+            {courses.length > 0 ? (
+              <select
+                key={courses.length}
+                className="ese-code-input"
+                onClick={() => courses.length === 0 && fetchCourses()}
+                value={courseCode}
+                onChange={e => {
+                  const val = e.target.value
+                  setCourseCode(val)
+                  setError('')
+                  if (val) handleLoad(val)
+                }}
+              >
+                <option value="">-- Choose Course Code --</option>
+                {courses.map(c => (
+                  <option key={c.id} value={c.course_code}>
+                    {c.course_code} - {c.course_title}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <button 
+                className="btn btn-outline" 
+                style={{ width: '100%', height: '45px', borderStyle: 'dashed' }}
+                onClick={fetchCourses}
+              >
+                Loading Courses... Click to Retry
+              </button>
+            )}
           </div>
           <button
             className="btn btn-gold ese-load-btn"
@@ -316,6 +346,10 @@ export default function Attendance() {
                 value={examDate}
                 onChange={e => setExamDate(e.target.value)}
               />
+            </div>
+            <div className="ese-info-item">
+              <span className="ese-info-label">Exam Venue</span>
+              <span className="ese-info-val" style={{color:'var(--navy)',fontWeight:700}}>{courseInfo.venue || 'NOT ALLOTTED'}</span>
             </div>
             <div className="ese-info-item">
               <span className="ese-info-label">Session</span>

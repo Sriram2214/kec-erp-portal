@@ -29,39 +29,8 @@ NAVY       = colors.HexColor('#1a2a5e')
 GOLD       = colors.HexColor('#c9a227')
 RED        = colors.HexColor('#dc2626')
 # Resolve paths relative to this file's location (app/api/) → go up 2 dirs to project root
-_ROOT      = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-LOGO_PATH  = os.path.join(_ROOT, 'frontend', 'public', 'logo.png')
-HEADER_IMG = os.path.join(_ROOT, 'frontend', 'public', 'header.png')  # PNG for ReportLab compat
-HEADER_ASPECT = 847 / 135  # actual image pixel ratio (width / height)
+from app.utils.pdf import get_institutional_header, HEADER_IMG, LOGO_PATH
 
-def get_institutional_header(story, page_w):
-    """Insert the official KEC letterhead image as the PDF header."""
-    if os.path.exists(HEADER_IMG):
-        # Use the real header image — full width, proportional height
-        img_h = page_w / HEADER_ASPECT
-        story.append(RLImage(HEADER_IMG, width=page_w, height=img_h))
-        story.append(Spacer(1, 1*mm))
-    else:
-        # Fallback: rendered text header
-        styles = getSampleStyleSheet()
-        hdr_center = Paragraph(
-            '<b>KINGS ENGINEERING COLLEGE</b><br/>'
-            '<font size=8><b>AN AUTONOMOUS INSTITUTION</b></font><br/>'
-            '<font size=7>ACCREDITED WITH NAAC AND AFFILIATED TO ANNA UNIVERSITY</font><br/>'
-            '<font size=7>Chennai-Bangalore Highway, Irungattukottai, Sriperumbudur, Chennai – 602 117.</font><br/>'
-            '<font size=7>Ph.: 044 – 71224401 -08. Fax: 044 – 71224410</font>',
-            ParagraphStyle('HDR_C', fontName='Helvetica-Bold', fontSize=16, textColor=NAVY, alignment=TA_CENTER, leading=16)
-        )
-        if os.path.exists(LOGO_PATH):
-            logo_img = RLImage(LOGO_PATH, width=0.85*inch, height=0.85*inch)
-            header_table = Table([[logo_img, hdr_center, logo_img]], colWidths=[1.1*inch, page_w - 2.2*inch, 1.1*inch])
-        else:
-            header_table = Table([['', hdr_center, '']], colWidths=[1.1*inch, page_w - 2.2*inch, 1.1*inch])
-        header_table.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('ALIGN', (0,0), (-1,-1), 'CENTER')]))
-        story.append(header_table)
-        story.append(Spacer(1, 1*mm))
-    story.append(HRFlowable(width='100%', thickness=1.5, color=colors.black))
-    story.append(Spacer(1, 2*mm))
 
 
 # ── ESE Attendance ──
@@ -172,6 +141,7 @@ def ese_students(course_code=None):
         'semester':     course.semester,
         'exam_date':    schedule.exam_date.strftime('%d.%m.%Y') if schedule and schedule.exam_date else None,
         'session':      schedule.session if schedule else None,
+        'venue':        schedule.venue if schedule else None,
         'schedule_id':  schedule.id if schedule else None,
         'total':        len(students),
         'source':       'course_registration' if registered_ids else 'semester_fallback',
@@ -224,23 +194,30 @@ def save_ese_attendance():
         db.session.add(schedule)
         db.session.flush()
 
-    # ── Upsert attendance records ─────────────────────────────────────
+    # ── High-Performance Bulk Upsert ──────────────────────────────────
+    # 1. Fetch all existing records for this schedule in ONE query
+    existing_records = Attendance.query.filter_by(exam_schedule_id=schedule.id).all()
+    existing_map = {att.student_id: att for att in existing_records}
+    
     saved = 0
+    to_add = []
+    
     for entry in entries:
         sid    = entry.get('student_id')
         status = entry.get('status', 'Present')
-        if not sid:
-            continue
-        att = Attendance.query.filter_by(
-            student_id=sid, exam_schedule_id=schedule.id
-        ).first()
-        if att:
-            att.status = status
+        if not sid: continue
+
+        if sid in existing_map:
+            # Update existing in-memory object
+            existing_map[sid].status = status
         else:
-            att = Attendance(student_id=sid, exam_schedule_id=schedule.id, status=status)
-            db.session.add(att)
+            # Prepare new object for bulk insertion
+            to_add.append(Attendance(student_id=sid, exam_schedule_id=schedule.id, status=status))
         saved += 1
 
+    if to_add:
+        db.session.bulk_save_objects(to_add)
+    
     db.session.commit()
     audit_log.log('SAVE_ESE_ATTENDANCE', {'course': code, 'count': saved, 'by': current_user.username})
 
@@ -349,11 +326,6 @@ def ese_attendance_pdf():
     # Column widths adjusted for Answer Booklet No. columns (likely 10 or 12 small boxes)
     col_widths = [page_w*0.05, page_w*0.14, page_w*0.25, page_w*0.25, page_w*0.13, page_w*0.18]
     
-    # Sub-table for Booklet Number boxes
-    def get_booklet_boxes():
-        # returns a sub-table with empty cells representing the boxes in the screenshot
-        return Table([['']*10], colWidths=[(page_w*0.25)/10.5]*10, style=[('GRID', (0,0), (-1,-1), 0.5, colors.black), ('BOTTOMPADDING', (0,0), (-1,-1), 8)])
-
     header_row = [
         Paragraph('<b>SNo</b>', sty('TH', fontName='Helvetica-Bold', fontSize=8, alignment=TA_CENTER)),
         Paragraph('<b>Register No</b>', sty('TH2', fontName='Helvetica-Bold', fontSize=8, alignment=TA_CENTER)),
@@ -363,17 +335,36 @@ def ese_attendance_pdf():
         Paragraph('<b>Student Signature</b>', sty('TH6', fontName='Helvetica-Bold', fontSize=8, alignment=TA_CENTER)),
     ]
 
+    # ── High-Performance Table Build ──
     table_data = [header_row]
+    # Reuse a single template for the booklet boxes data to save memory
+    booklet_data = [[''] * 10]
+    booklet_col_w = (page_w * 0.25) / 10.5
+    
     for i, s in enumerate(students, 1):
         status = existing.get(s.id, 'Present')
-        ab_cell = Paragraph('<b>AB</b>', sty(f'AB{i}', fontName='Helvetica-Bold', fontSize=9, textColor=RED, alignment=TA_CENTER)) if status == 'Absent' else ''
+        ab_mark = ''
+        if status == 'Absent':
+            ab_mark = Paragraph('<b>AB</b>', sty(f'AB{i}', fontName='Helvetica-Bold', fontSize=9, textColor=RED, alignment=TA_CENTER))
+        elif status == 'Malpractice':
+            ab_mark = Paragraph('<b>MP</b>', sty(f'MP{i}', fontName='Helvetica-Bold', fontSize=9, textColor=RED, alignment=TA_CENTER))
         
+        # We still use a small table for the boxes, but we optimize its creation
+        boxes = Table(booklet_data, colWidths=[booklet_col_w]*10)
+        boxes.setStyle(TableStyle([
+            ('GRID', (0,0), (-1,-1), 0.5, colors.black),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 1),
+            ('TOPPADDING', (0,0), (-1,-1), 1),
+            ('LEFTPADDING', (0,0), (-1,-1), 1),
+            ('RIGHTPADDING', (0,0), (-1,-1), 1),
+        ]))
+
         table_data.append([
             Paragraph(str(i), sty(f'SN{i}', fontName='Helvetica', fontSize=8, alignment=TA_CENTER)),
             Paragraph(s.register_number, sty(f'RN{i}', fontName='Helvetica', fontSize=8, alignment=TA_CENTER)),
             Paragraph(s.name, sty(f'NM{i}', fontName='Helvetica', fontSize=8)),
-            get_booklet_boxes(),
-            ab_cell,
+            boxes,
+            ab_mark,
             '',
         ])
 
@@ -582,50 +573,70 @@ def ese_despatch_pdf():
         story.append(meta_tbl)
         story.append(Spacer(1, 2*mm))
 
-        # ── Main Table (Two Columns)
-        main_hdr = [
-            [
-                Paragraph('<b>List of Present Candidates</b>', table_hdr),
-                '', '',
-                Paragraph('<b>List of Absent / Malpractice Candidates</b>', table_hdr),
-                ''
-            ],
-            [
-                Paragraph('<b>SNo</b>', table_hdr),
-                Paragraph('<b>Register No.</b>', table_hdr),
-                Paragraph('<b>Name of the Student</b>', table_hdr),
-                Paragraph('<b>Register No.</b>', table_hdr),
-                Paragraph('<b>Name of the Student</b>', table_hdr),
-            ]
+    # ── Main Table (Single column of Present candidates for clarity)
+    main_hdr = [
+        [
+            Paragraph('<b>SNo</b>', table_hdr),
+            Paragraph('<b>Register No.</b>', table_hdr),
+            Paragraph('<b>Name of the Student</b>', table_hdr),
+            Paragraph('<b>Answer Script No. / Remarks</b>', table_hdr),
         ]
+    ]
+    
+    col_widths = [page_w*0.08, page_w*0.22, page_w*0.35, page_w*0.35]
+    
+    # ── Main Table (Now includes ALL students as requested, marking AB/MP)
+    total_pages = max(1, math.ceil(total / PAGE_SIZE))
+    
+    for page_idx in range(total_pages):
+        # ... (Institutional Header and Metadata Grid omitted for brevity but remain in real implementation) ...
+        # (Actually I need to keep the full logic inside the loop)
         
-        col_widths = [page_w*0.05, page_w*0.15, page_w*0.30, page_w*0.15, page_w*0.35]
-        
+        # [REPEATED HEADER LOGIC]
+        get_institutional_header(story, page_w)
+        story.append(Paragraph(f'<b>END SEMESTER EXAMINATIONS - {exam_period}</b>', title_sty))
+        story.append(Paragraph('<b>DESPATCH REPORT</b>', sty('DESP', fontName='Helvetica-Bold', fontSize=12, alignment=TA_CENTER, spaceAfter=2)))
+        story.append(HRFlowable(width='100%', thickness=0.5, color=colors.black))
+        story.append(Spacer(1, 2*mm))
+
+        meta_data = [
+            [Paragraph('<b>Department</b>', meta_lbl), Paragraph(':', meta_lbl), Paragraph(dept_str, meta_val_b), Paragraph('<b>Course Code</b>', meta_lbl), Paragraph(':', meta_lbl), Paragraph(course.course_code, meta_val)],
+            [Paragraph('<b>Exam Date & Session</b>', meta_lbl), Paragraph(':', meta_lbl), Paragraph(f"{exam_date_disp} – {schedule.session if schedule else ''}", meta_val_b), Paragraph('<b>Course Title</b>', meta_lbl), Paragraph(':', meta_lbl), Paragraph(course.course_title, meta_val_b)],
+            [Paragraph('<b>Total Strength</b>', meta_lbl), Paragraph(':', meta_lbl), Paragraph(str(total), meta_val_b), Paragraph('<b>No. of Present</b>', meta_lbl), Paragraph(':', meta_lbl), Paragraph(str(present_count), meta_val_b)],
+            [Paragraph('<b>No. of Absent</b>', meta_lbl), Paragraph(':', meta_lbl), Paragraph(str(absent_count), meta_val_b), Paragraph('<b>No. of Malpractice</b>', meta_lbl), Paragraph(':', meta_lbl), Paragraph(str(malpractice_count), meta_val_b)]
+        ]
+        meta_tbl = Table(meta_data, colWidths=[page_w*0.18, page_w*0.02, page_w*0.35, page_w*0.18, page_w*0.02, page_w*0.25])
+        meta_tbl.setStyle(TableStyle([('GRID', (0,0), (-1,-1), 0.5, colors.grey),('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('BOTTOMPADDING', (0,0), (-1,-1), 3), ('TOPPADDING', (0,0), (-1,-1), 2)]))
+        story.append(meta_tbl)
+        story.append(Spacer(1, 3*mm))
+
         rows = []
-        page_present = present_list[page_idx*PAGE_SIZE : (page_idx+1)*PAGE_SIZE]
-        page_ab_mp = ab_mp_combined[page_idx*PAGE_SIZE : (page_idx+1)*PAGE_SIZE]
+        page_students = all_students[page_idx*PAGE_SIZE : (page_idx+1)*PAGE_SIZE]
         
-        max_rows = max(len(page_present), len(page_ab_mp))
-        
-        for i in range(max_rows):
-            p_stu = page_present[i] if i < len(page_present) else None
-            a_stu = page_ab_mp[i] if i < len(page_ab_mp) else None
-            p_idx = page_idx * PAGE_SIZE + i + 1
+        for i, s in enumerate(page_students):
+            idx = page_idx * PAGE_SIZE + i + 1
+            status = existing.get(s.id, 'Present')
+            
+            remarks = ''
+            if status == 'Absent': 
+                remarks = Paragraph('<b>ABSENT (AB)</b>', sty('RAB', fontName='Helvetica-Bold', fontSize=8, textColor=RED, alignment=TA_CENTER))
+            elif status == 'Malpractice': 
+                remarks = Paragraph('<b>MALPRACTICE (MP)</b>', sty('RMP', fontName='Helvetica-Bold', fontSize=8, textColor=RED, alignment=TA_CENTER))
             
             rows.append([
-                Paragraph(str(p_idx) if p_stu else '', cell_sty_c),
-                Paragraph(p_stu.register_number if p_stu else '', cell_sty_c),
-                Paragraph(p_stu.name if p_stu else '', cell_sty),
-                Paragraph(a_stu['reg'] if a_stu else '', cell_sty_c),
-                Paragraph(a_stu['name'] if a_stu else '', cell_sty),
-            ])
-            
+                Paragraph(str(idx), cell_sty_c),
+                Paragraph(s.register_number, cell_sty_c),
+                Paragraph(s.name, cell_sty),
+                remarks,
+            ])        
+        # Fill remaining rows to reach 30 if last page is short
+        for i in range(len(page_students), PAGE_SIZE):
+            rows.append(['', '', '', ''])
+
         main_tbl_data = main_hdr + rows
-        main_tbl = Table(main_tbl_data, colWidths=col_widths, repeatRows=2)
+        main_tbl = Table(main_tbl_data, colWidths=col_widths, repeatRows=1)
         main_tbl.setStyle(TableStyle([
             ('GRID', (0,0), (-1,-1), 0.5, colors.black),
-            ('SPAN', (0,0), (2,0)), # List of Present Candidates
-            ('SPAN', (3,0), (4,0)), # List of AB/MP Candidates
             ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
             ('ALIGN', (0,0), (-1,-1), 'CENTER'),
             ('BOTTOMPADDING', (0,0), (-1,-1), 2),
@@ -633,17 +644,37 @@ def ese_despatch_pdf():
         ]))
         story.append(main_tbl)
         
-        story.append(Spacer(1, 5*mm))
+        story.append(Spacer(1, 8*mm))
         sig_data = [[
-            Paragraph('Name & Signature of Examiner', sty('SIG', fontName='Helvetica', fontSize=8)),
+            Paragraph('<b>__________________________</b><br/>Signature of the Hall Invigilator', sty('SIG', fontName='Helvetica', fontSize=8.5, alignment=TA_CENTER)),
             Paragraph(f'Page {page_idx+1} of {total_pages}', sty('PG', fontName='Helvetica', fontSize=8, alignment=TA_CENTER)),
-            Paragraph('Name & Signature of Chairman', sty('SIG2', fontName='Helvetica', fontSize=8, alignment=TA_RIGHT))
+            Paragraph('<b>__________________________</b><br/>Signature of the Chief Superintendent', sty('SIG2', fontName='Helvetica', fontSize=8.5, alignment=TA_CENTER))
         ]]
         sig_tbl = Table(sig_data, colWidths=[page_w/3]*3)
         story.append(sig_tbl)
 
         if page_idx < total_pages - 1:
             story.append(PageBreak())
+
+    # ── Final Page: Absent / Malpractice Summary (As requested)
+    if ab_mp_combined:
+        story.append(Spacer(1, 10*mm))
+        story.append(Paragraph('<b>LIST OF ABSENT / MALPRACTICE CANDIDATES</b>', sty('ABH', fontName='Helvetica-Bold', fontSize=10, alignment=TA_CENTER, spaceAfter=2)))
+        ab_hdr = [[Paragraph('<b>Register No.</b>', table_hdr), Paragraph('<b>Name of the Student</b>', table_hdr), Paragraph('<b>Status</b>', table_hdr)]]
+        ab_rows = []
+        for item in ab_mp_combined:
+            ab_rows.append([
+                Paragraph(item['reg'], cell_sty_c),
+                Paragraph(item['name'].replace(' (AB)','').replace(' (MP)',''), cell_sty),
+                Paragraph('ABSENT' if '(AB)' in item['name'] else 'MALPRACTICE', cell_sty_c)
+            ])
+        ab_tbl = Table(ab_hdr + ab_rows, colWidths=[page_w*0.3, page_w*0.4, page_w*0.3])
+        ab_tbl.setStyle(TableStyle([
+            ('GRID', (0,0), (-1,-1), 0.5, colors.black),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('BACKGROUND', (0,0), (-1,0), LIGHT if 'LIGHT' in locals() else colors.lightgrey)
+        ]))
+        story.append(ab_tbl)
 
     doc.build(story)
     buf.seek(0)

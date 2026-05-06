@@ -1,90 +1,91 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Layout     from './components/Layout/Layout'
 import ErrorBoundary from './components/ErrorBoundary'
 import Splash     from './pages/Splash/Splash'
+
+// Critical pages - Eager Load
 import Login      from './pages/Login/Login'
-import COELogin   from './pages/Login/COELogin'
-import AdminLogin  from './pages/Login/AdminLogin'
-import AdminLoginPage from './pages/Login/AdminLoginPage'
-import StudentLogin from './pages/Login/StudentLogin'
-import FacultyLogin from './pages/Login/FacultyLogin'
 import Dashboard  from './pages/Dashboard/Dashboard'
-import Students   from './pages/Students/Students'
-import Faculty    from './pages/Faculty/Faculty'
-import RegularAttendance from './pages/Attendance/RegularAttendance'
-import ESEAttendance     from './pages/Attendance/Attendance'
-import RegularMarks      from './pages/Marks/RegularMarks'
-import Stickers   from './pages/Stickers/Stickers'
-import Results     from './pages/Results/Results'
-import HallTickets from './pages/HallTickets/HallTickets'
-import Security    from './pages/Security/Security'
-import Master      from './pages/Master/Master'
-import Courses     from './pages/Courses/Courses'
-import Allocations from './pages/Allocations/Allocations'
-import AcademicOps from './pages/AcademicOps/AcademicOps'
-import Departments from './pages/Departments/Departments'
-import ExamSchedule from './pages/ExamSchedule/ExamSchedule'
-import Registration from './pages/Registration/Registration'
-import Clearance    from './pages/Clearance/Clearance'
-import Reports      from './pages/Reports/Reports'
-import COE          from './pages/COE/COE'
-import Valuation    from './pages/Valuation/Valuation'
-import Certificates from './pages/Certificates/Certificates'
-import COEReports   from './pages/COEReports/COEReports'
-import Analytics    from './pages/Analytics/Analytics'
+
+// Non-critical / Heavy pages - Lazy Load
+const COELogin   = lazy(() => import('./pages/Login/COELogin'))
+const AdminLogin  = lazy(() => import('./pages/Login/AdminLogin'))
+const AdminLoginPage = lazy(() => import('./pages/Login/AdminLoginPage'))
+const StudentLogin = lazy(() => import('./pages/Login/StudentLogin'))
+const FacultyLogin = lazy(() => import('./pages/Login/FacultyLogin'))
+const Students   = lazy(() => import('./pages/Students/Students'))
+const Faculty    = lazy(() => import('./pages/Faculty/Faculty'))
+const RegularAttendance = lazy(() => import('./pages/Attendance/RegularAttendance'))
+const ESEAttendance     = lazy(() => import('./pages/Attendance/Attendance'))
+const RegularMarks      = lazy(() => import('./pages/Marks/RegularMarks'))
+const Stickers   = lazy(() => import('./pages/Stickers/Stickers'))
+const Results     = lazy(() => import('./pages/Results/Results'))
+const HallTickets = lazy(() => import('./pages/HallTickets/HallTickets'))
+const Security    = lazy(() => import('./pages/Security/Security'))
+const Master      = lazy(() => import('./pages/Master/Master'))
+const Courses     = lazy(() => import('./pages/Courses/Courses'))
+const Allocations = lazy(() => import('./pages/Allocations/Allocations'))
+const AcademicOps = lazy(() => import('./pages/AcademicOps/AcademicOps'))
+const Departments = lazy(() => import('./pages/Departments/Departments'))
+const ExamSchedule = lazy(() => import('./pages/ExamSchedule/ExamSchedule'))
+const Registration = lazy(() => import('./pages/Registration/Registration'))
+const Clearance    = lazy(() => import('./pages/Clearance/Clearance'))
+const Reports      = lazy(() => import('./pages/Reports/Reports'))
+const COE          = lazy(() => import('./pages/COE/COE'))
+const Valuation    = lazy(() => import('./pages/Valuation/Valuation'))
+const Certificates = lazy(() => import('./pages/Certificates/Certificates'))
+const COEReports   = lazy(() => import('./pages/COEReports/COEReports'))
+const Analytics    = lazy(() => import('./pages/Analytics/Analytics'))
+
 import './styles/index.css'
 import './styles/stats.css'
 
+const PageLoader = () => (
+  <div style={{ height: '80vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--navy)', fontFamily: 'Cinzel, serif', letterSpacing: '0.2em' }}>
+    <div className="analytics-spinner" style={{ marginBottom: '1.5rem' }} />
+    <div style={{ fontSize: '0.8rem', opacity: 0.8 }}>LOADING...</div>
+  </div>
+)
+
 function PrivateRoute({ children, allowedRoles }) {
   const { user, loading } = useAuth()
-  if (loading) return (
-    <div style={{
-      height: '100vh', display: 'flex',
-      alignItems: 'center', justifyContent: 'center',
-      color: 'var(--navy)', fontFamily: 'Cinzel, serif', fontSize: '1rem'
-    }}>
-      Loading…
-    </div>
-  )
+  if (loading) return <PageLoader />
   if (!user) return <Navigate to="/login" replace />
   
   if (allowedRoles && !allowedRoles.includes(user.role)) {
     return <Navigate to="/dashboard" replace />
   }
   
-  return <Layout>{children}</Layout>
+  return <Layout><Suspense fallback={<PageLoader />}>{children}</Suspense></Layout>
 }
 
 export default function App() {
   const [showSplash, setShowSplash] = useState(true)
 
   useEffect(() => {
-    // Show splash for 3s on initial app load
     const timer = setTimeout(() => {
       setShowSplash(false)
-    }, 3000)
+    }, 1000)
     return () => clearTimeout(timer)
   }, [])
 
-  // 1. If splash is active, show ONLY the splash (preventing background flicker)
   if (showSplash) {
     return <Splash isVisible={true} />
   }
 
-  // 2. Once splash is done, mount the full application
   return (
     <BrowserRouter>
       <ErrorBoundary>
         <AuthProvider>
           <Routes>
             <Route path="/"      element={<Navigate to="/login" replace />} />
-            <Route path="/login"          element={<Login />} />
-            <Route path="/coe-login"      element={<COELogin />} />
-            <Route path="/admin-login"    element={<AdminLogin />} />
-            <Route path="/student-portal" element={<StudentLogin />} />
-            <Route path="/faculty-portal" element={<FacultyLogin />} />
+            <Route path="/login"          element={<Suspense fallback={<PageLoader />}><Login /></Suspense>} />
+            <Route path="/coe-login"      element={<Suspense fallback={<PageLoader />}><COELogin /></Suspense>} />
+            <Route path="/admin-login"    element={<Suspense fallback={<PageLoader />}><AdminLogin /></Suspense>} />
+            <Route path="/student-portal" element={<Suspense fallback={<PageLoader />}><StudentLogin /></Suspense>} />
+            <Route path="/faculty-portal" element={<Suspense fallback={<PageLoader />}><FacultyLogin /></Suspense>} />
 
             {/* Active pages */}
             <Route path="/dashboard"  element={<PrivateRoute><Dashboard  /></PrivateRoute>} />

@@ -29,12 +29,8 @@ export default function Dashboard() {
       .finally(() => setLoading(false))
   }, [])
 
-  if (loading) return (
-    <div className="dashboard-loading">
-      <div className="analytics-spinner" />
-      <p>Synchronizing Institutional Data...</p>
-    </div>
-  )
+  // Removed blocking full-page loading to make transitions feel instant
+  // if (loading) return ... 
 
   if (user?.role === 'coe') {
     return (

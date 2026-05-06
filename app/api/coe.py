@@ -157,34 +157,45 @@ def generate_dummies():
         return jsonify({'message': 'No students found'}), 404
 
     count = 0
+    ay = AcademicYear.query.filter_by(is_current=True).first()
+    
     for s in students:
-        # Check if already has a dummy sticker for this schedule or semester
-        # If no schedule, we can't easily link it to a specific exam, 
-        # but the user said "entire sem oda reg numbrer".
-        # Let's assume one dummy number per student per course/exam.
-        
-        if not schedule: continue # Need schedule to link dummy number
+        if not schedule: continue
 
-        existing = DummySticker.query.filter_by(student_id=s.id, exam_schedule_id=schedule.id).first()
-        if not existing:
-            # Generate dummy number: e.g., 24 + DEPT_CODE + RANDOM_5_DIGITS
+        # Check if already has a dummy sticker for THIS specific schedule
+        existing_this = DummySticker.query.filter_by(student_id=s.id, exam_schedule_id=schedule.id).first()
+        if existing_this: continue
+
+        # [NEW] Check if student already has a dummy number for ANY other subject in the SAME semester/cycle
+        # We look for any existing DummySticker for this student where the schedule belongs to the same AcademicYear
+        existing_sem = db.session.query(DummySticker).join(ExamSchedule)\
+            .filter(DummySticker.student_id == s.id)\
+            .filter(ExamSchedule.academic_year_id == ay.id if ay else True).first()
+
+        if existing_sem:
+            # Reuse the existing dummy number for this new subject
+            dummy_no = existing_sem.dummy_number
+            foil_no  = existing_sem.foil_number
+        else:
+            # Generate a fresh one for the start of the semester
             dept_prefix = s.department[:3].upper()
             rand_part = ''.join(random.choices(string.digits, k=5))
             dummy_no = f"24{dept_prefix}{rand_part}"
             
-            # Ensure uniqueness
             while DummySticker.query.filter_by(dummy_number=dummy_no).first():
                 rand_part = ''.join(random.choices(string.digits, k=5))
                 dummy_no = f"24{dept_prefix}{rand_part}"
+            
+            foil_no = str(random.randint(1000, 9999))
 
-            ds = DummySticker(
-                student_id=s.id,
-                exam_schedule_id=schedule.id,
-                dummy_number=dummy_no,
-                foil_number=str(random.randint(1000, 9999)) # Random foil no for now
-            )
-            db.session.add(ds)
-            count += 1
+        ds = DummySticker(
+            student_id=s.id,
+            exam_schedule_id=schedule.id,
+            dummy_number=dummy_no,
+            foil_number=foil_no
+        )
+        db.session.add(ds)
+        count += 1
 
     db.session.commit()
     return jsonify({'message': f'Generated {count} dummy numbers successfully.'})
@@ -199,7 +210,7 @@ def courier_sheet():
     from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, HRFlowable, Image as RLImage
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
-    from app.api.ese import get_institutional_header
+    from app.utils.pdf import get_institutional_header
     import io, datetime, os
 
     course_code = request.args.get('course_code', '').strip().upper()

@@ -15,6 +15,9 @@ export default function Students() {
   const [students,   setStudents]   = useState([])
   const [master,     setMaster]     = useState({ departments:[], batches:[], regulations:[], degrees:[] })
   const [loading,    setLoading]    = useState(true)
+  const [page,       setPage]       = useState(1)
+  const [total,      setTotal]      = useState(0)
+  const PER_PAGE = 100
 
   // Add mode: 'none' | 'individual' | 'excel'
   const [addMode,    setAddMode]    = useState('none')
@@ -37,16 +40,34 @@ export default function Students() {
 
   const load = () => {
     setLoading(true)
-    api.get('/students')
+    const params = new URLSearchParams({
+      fields: 'list',
+      page: page,
+      per_page: PER_PAGE,
+      dept: filterDept,
+      batch: filterBatch,
+      year: filterYear,
+      search: search
+    })
+    api.get(`/students?${params.toString()}`)
       .then(r => {
-        const data = r.data
-        setStudents(Array.isArray(data) ? data : (data.students || []))
+        setStudents(r.data.students || [])
+        setTotal(r.data.total || 0)
       })
       .finally(() => setLoading(false))
   }
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setPage(1)
+      load()
+    }, 400) // debounce search
+    return () => clearTimeout(timer)
+  }, [filterDept, filterBatch, filterYear, search])
+
+  useEffect(() => {
     load()
+  }, [page])
     api.get('/master')
       .then(r => {
         if (r.data && r.data.departments && r.data.departments.length > 0) {
@@ -93,19 +114,14 @@ export default function Students() {
     }
   }
 
-  const filtered = students.filter(s => {
-    if (filterDept  && s.department   !== filterDept)          return false
-    if (filterBatch && s.batch        !== filterBatch)         return false
-    if (filterYear  && String(s.academic_year) !== filterYear) return false
-    if (search && !s.name.toLowerCase().includes(search.toLowerCase()) &&
-                  !s.register_number.toLowerCase().includes(search.toLowerCase())) return false
-    return true
+  // Server-side filtered students are now in 'students' state
+  const byDept = {}
+  students.forEach(s => {
+    if (!byDept[s.department]) byDept[s.department] = []
+    byDept[s.department].push(s)
   })
 
-  const byDept = (master.departments || []).reduce((acc, d) => {
-    acc[d.code] = filtered.filter(s => s.department === d.code)
-    return acc
-  }, {})
+  const totalPages = Math.ceil(total / PER_PAGE)
 
   const handleSubmit = async e => {
     e.preventDefault()
@@ -367,8 +383,28 @@ export default function Students() {
         </div>
         <div className="filter-footer">
           <div className="filter-count">
-            Found <strong>{filtered.length}</strong> matching records <span>(Total: {students.length})</span>
+            Showing <strong>{students.length}</strong> of <strong>{total}</strong> students
           </div>
+          
+          {totalPages > 1 && (
+            <div className="pagination">
+              <button 
+                className="btn btn-outline btn-sm" 
+                disabled={page <= 1}
+                onClick={() => setPage(p => p - 1)}
+              >
+                Previous
+              </button>
+              <span className="page-info">Page <strong>{page}</strong> of {totalPages}</span>
+              <button 
+                className="btn btn-outline btn-sm" 
+                disabled={page >= totalPages}
+                onClick={() => setPage(p => p + 1)}
+              >
+                Next
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

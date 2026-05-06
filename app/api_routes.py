@@ -655,19 +655,8 @@ def ese_attendance_pdf():
 
     story = []
 
-    # ── College Header ──
-    story.append(Paragraph('KINGS', sty('K', fontName='Helvetica-Bold', fontSize=22,
-                                         textColor=NAVY, alignment=TA_CENTER)))
-    story.append(Paragraph('ENGINEERING COLLEGE', sty('KC', fontName='Helvetica-Bold',
-                            fontSize=14, textColor=NAVY, alignment=TA_CENTER)))
-    story.append(Paragraph('AN AUTONOMOUS INSTITUTION', sty('KA', fontName='Helvetica-Bold',
-                            fontSize=8, textColor=NAVY, alignment=TA_CENTER)))
-    story.append(Paragraph('Accredited with NAAC and affiliated to Anna University',
-                            hdr_small))
-    story.append(Paragraph('Chennai–Bangalore Highway, Irungattukottai, Sriperumbudur, Chennai – 602 117.',
-                            hdr_small))
-    story.append(Paragraph('Ph.: 044-71224401-08, Fax: 044-71224410',
-                            hdr_small))
+    from app.utils.pdf import get_institutional_header
+    get_institutional_header(story, page_w)
     story.append(Spacer(1, 4*mm))
     story.append(HRFlowable(width='100%', thickness=1.5, color=NAVY))
     story.append(Spacer(1, 2*mm))
@@ -1133,17 +1122,8 @@ def ese_despatch_pdf():
     def build_page_header():
         """Returns story elements for KCE header + despatch info."""
         elems = []
-        elems.append(Paragraph('KINGS',
-            sty('DK', fontName='Helvetica-Bold', fontSize=20, textColor=NAVY, alignment=TA_CENTER)))
-        elems.append(Paragraph('ENGINEERING COLLEGE',
-            sty('DKC', fontName='Helvetica-Bold', fontSize=12, textColor=NAVY, alignment=TA_CENTER)))
-        elems.append(Paragraph('AN AUTONOMOUS INSTITUTION',
-            sty('DKA', fontName='Helvetica-Bold', fontSize=7.5, textColor=NAVY, alignment=TA_CENTER)))
-        elems.append(Paragraph('Accredited with NAAC and affiliated to Anna University',
-            sty('DT', fontName='Helvetica', fontSize=7, textColor=colors.grey, alignment=TA_CENTER)))
-        elems.append(Paragraph(
-            'Chennai–Bangalore Highway, Irungattukottai, Sriperumbudur, Chennai – 602 117. Ph.: 044-71224401-08, Fax: 044-71224410',
-            sty('DT2', fontName='Helvetica', fontSize=7, textColor=colors.grey, alignment=TA_CENTER)))
+        from app.utils.pdf import get_institutional_header
+        get_institutional_header(elems, page_w)
         elems.append(Spacer(1, 3*mm))
         elems.append(HRFlowable(width='100%', thickness=1.5, color=NAVY))
         elems.append(Spacer(1, 1*mm))

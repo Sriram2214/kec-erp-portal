@@ -199,6 +199,7 @@ def courier_sheet():
     from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, HRFlowable, Image as RLImage
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+    from app.api.ese import get_institutional_header
     import io, datetime, os
 
     course_code = request.args.get('course_code', '').strip().upper()
@@ -225,26 +226,8 @@ def courier_sheet():
     page_w = A4[0] - 40*mm
     story = []
     
-    # ── Standardized Header with Logo
-    logo_path = os.path.join(os.getcwd(), 'frontend', 'public', 'logo.png')
-    hdr_center = Paragraph(
-        '<b>KINGS ENGINEERING COLLEGE</b><br/>'
-        '<font size=8><b>AN AUTONOMOUS INSTITUTION</b></font><br/>'
-        '<font size=7>ACCREDITED WITH NAAC AND AFFILIATED TO ANNA UNIVERSITY</font><br/>'
-        '<font size=7>Chennai-Bangalore Highway, Irungattukottai, Sriperumbudur, Chennai – 602 117.</font><br/>'
-        '<font size=7>Ph.: 044 – 71224401 -08. Fax: 044 – 71224410</font>',
-        ParagraphStyle('HDR_C', fontName='Helvetica-Bold', fontSize=16, textColor=NAVY, alignment=TA_CENTER, leading=16)
-    )
-    
-    if os.path.exists(logo_path):
-        logo_img = RLImage(logo_path, width=0.85*inch, height=0.85*inch)
-        header_table = Table([[logo_img, hdr_center, logo_img]], colWidths=[1.1*inch, page_w - 2.2*inch, 1.1*inch])
-    else:
-        header_table = Table([['', hdr_center, '']], colWidths=[1.1*inch, page_w - 2.2*inch, 1.1*inch])
-    
-    header_table.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('ALIGN', (0,0), (-1,-1), 'CENTER')]))
-    story.append(header_table)
-    story.append(Spacer(1, 2*mm))
+    # ── Header image
+    get_institutional_header(story, page_w)
     story.append(HRFlowable(width="100%", thickness=1.5, color=NAVY))
     story.append(Spacer(1, 2*mm))
     story.append(Paragraph("OFFICE OF THE CONTROLLER OF EXAMINATIONS", ParagraphStyle('Sub', alignment=TA_CENTER, fontSize=11, textColor=NAVY, spaceAfter=10)))

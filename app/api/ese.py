@@ -436,26 +436,8 @@ def ese_cover_sheet_pdf():
     story = []
 
     for bundle_idx in range(num_bundles):
-        # ── Header with Logo
-        logo_path = os.path.join(os.getcwd(), 'frontend', 'public', 'logo.png')
-        hdr_center = Paragraph(
-            '<b>KINGS ENGINEERING COLLEGE</b><br/>'
-            '<font size=8><b>AN AUTONOMOUS INSTITUTION</b></font><br/>'
-            '<font size=7>ACCREDITED WITH NAAC AND AFFILIATED TO ANNA UNIVERSITY</font><br/>'
-            '<font size=7>Chennai-Bangalore Highway, Irungattukottai, Sriperumbudur, Chennai – 602 117.</font><br/>'
-            '<font size=7>Ph.: 044 – 71224401 -08. Fax: 044 – 71224410</font>',
-            ParagraphStyle('HDR_C', fontName='Helvetica-Bold', fontSize=16, textColor=NAVY, alignment=TA_CENTER, leading=16)
-        )
-        if os.path.exists(logo_path):
-            logo_img = RLImage(logo_path, width=0.85*inch, height=0.85*inch)
-            header_table = Table([[logo_img, hdr_center, logo_img]], colWidths=[1.1*inch, page_w - 2.2*inch, 1.1*inch])
-        else:
-            header_table = Table([['', hdr_center, '']], colWidths=[1.1*inch, page_w - 2.2*inch, 1.1*inch])
-        
-        header_table.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('ALIGN', (0,0), (-1,-1), 'CENTER')]))
-        story.append(header_table)
-        story.append(Spacer(1, 2*mm))
-        story.append(HRFlowable(width='100%', thickness=1.5, color=NAVY))
+        # ── Header image
+        get_institutional_header(story, page_w)
         story.append(Spacer(1, 2*mm))
         story.append(Paragraph(f'END SEMESTER EXAMINATIONS – {(ay.semester if ay else "EVEN").upper()} SEM {ay.label if ay else "2025-26"}', ParagraphStyle('ET', fontName='Helvetica-Bold', fontSize=10, textColor=NAVY, alignment=TA_CENTER)))
         story.append(Spacer(1, 3*mm))
@@ -818,28 +800,9 @@ def get_hallticket_pdf():
     doc = SimpleDocTemplate(buf, pagesize=A4, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
     styles = getSampleStyleSheet(); story = []
     
-    # ── Standardized Header with Logo
-    NAVY = colors.HexColor('#1a2a5e')
-    logo_path = os.path.join(os.getcwd(), 'frontend', 'public', 'logo.png')
-    page_w = A4[0] - 80 # matching margins
-    
-    hdr_center = Paragraph(
-        '<b>KINGS ENGINEERING COLLEGE</b><br/>'
-        '<font size=8><b>AN AUTONOMOUS INSTITUTION</b></font><br/>'
-        '<font size=7>ACCREDITED WITH NAAC AND AFFILIATED TO ANNA UNIVERSITY</font><br/>'
-        '<font size=7>Chennai-Bangalore Highway, Irungattukottai, Sriperumbudur, Chennai – 602 117.</font><br/>'
-        '<font size=7>Ph.: 044 – 71224401 -08. Fax: 044 – 71224410</font>',
-        ParagraphStyle('HDR_C', fontName='Helvetica-Bold', fontSize=16, textColor=NAVY, alignment=TA_CENTER, leading=16)
-    )
-    
-    if os.path.exists(logo_path):
-        logo_img = RLImage(logo_path, width=0.85*inch, height=0.85*inch)
-        header_table = Table([[logo_img, hdr_center, logo_img]], colWidths=[1.1*inch, page_w - 2.2*inch, 1.1*inch])
-    else:
-        header_table = Table([['', hdr_center, '']], colWidths=[1.1*inch, page_w - 2.2*inch, 1.1*inch])
-    
-    header_table.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('ALIGN', (0,0), (-1,-1), 'CENTER'), ('LINEBELOW', (0,0), (-1,-1), 1, colors.black)]))
-    story.append(header_table)
+    # ── Header image
+    page_w = A4[0] - 80
+    get_institutional_header(story, page_w)
     story.append(Spacer(1, 15))
     story.append(Paragraph(f"<b>END SEMESTER EXAMINATIONS – {ay.semester} {ay.label}</b>", ParagraphStyle('t1', alignment=1)))
     story.append(Spacer(1, 8)); story.append(Paragraph("<b>HALL TICKET</b>", ParagraphStyle('t2', alignment=1, fontSize=15, textColor=NAVY))); story.append(Spacer(1, 15))
@@ -956,37 +919,8 @@ def session_daywise_report_pdf():
     page_w = A4[0] - 30*mm
     story = []
 
-    # ── Header with Logo
-    logo_path = os.path.join(os.getcwd(), 'frontend', 'public', 'logo.png')
-    
-    hdr_center = Paragraph(
-        '<b>KINGS ENGINEERING COLLEGE</b><br/>'
-        '<font size=8><b>AN AUTONOMOUS INSTITUTION</b></font><br/>'
-        '<font size=7>ACCREDITED WITH NAAC AND AFFILIATED TO ANNA UNIVERSITY</font><br/>'
-        '<font size=7>Chennai-Bangalore Highway, Irungattukottai, Sriperumbudur, Chennai – 602 117.</font><br/>'
-        '<font size=7>Ph.: 044 – 71224401 -08. Fax: 044 – 71224410</font>',
-        ParagraphStyle('HDR_C', fontName='Helvetica-Bold', fontSize=16, textColor=NAVY, alignment=TA_CENTER, leading=16)
-    )
-    
-    if os.path.exists(logo_path):
-        logo_img = RLImage(logo_path, width=0.85*inch, height=0.85*inch)
-        header_table = Table(
-            [[logo_img, hdr_center, logo_img]],
-            colWidths=[1.1*inch, page_w - 2.2*inch, 1.1*inch]
-        )
-    else:
-        header_table = Table(
-            [['', hdr_center, '']],
-            colWidths=[1.1*inch, page_w - 2.2*inch, 1.1*inch]
-        )
-    
-    header_table.setStyle(TableStyle([
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('ALIGN', (0,0), (0,0), 'CENTER'),
-        ('ALIGN', (1,0), (1,0), 'CENTER'),
-        ('ALIGN', (2,0), (2,0), 'CENTER'),
-    ]))
-    story.append(header_table)
+    # ── Header image
+    get_institutional_header(story, page_w)
     story.append(Spacer(1, 2*mm))
     story.append(HRFlowable(width='100%', thickness=1.5, color=NAVY))
     story.append(Spacer(1, 2*mm))
@@ -1120,13 +1054,8 @@ def qp_cover_report_pdf():
     page_w = A4[0] - 30*mm
     story = []
 
-    # Institutional Header
-    logo_path = os.path.join(os.getcwd(), 'frontend', 'public', 'logo.png')
-    hdr_center = Paragraph('<b>KINGS ENGINEERING COLLEGE</b><br/><font size=8>AN AUTONOMOUS INSTITUTION</font>', ParagraphStyle('H', alignment=TA_CENTER, textColor=NAVY, fontSize=16))
-    if os.path.exists(logo_path):
-        logo = RLImage(logo_path, width=0.8*inch, height=0.8*inch)
-        story.append(Table([[logo, hdr_center, logo]], colWidths=[1*inch, page_w-2*inch, 1*inch], style=[('VALIGN',(0,0),(-1,-1),'MIDDLE')]))
-    
+    # ── Header image
+    get_institutional_header(story, page_w)
     story.append(Spacer(1, 4*mm))
     story.append(Paragraph(f'<b>QP COVER ALLOTMENT REPORT – {report_date.strftime("%d.%m.%Y")}</b>', ParagraphStyle('T', alignment=TA_CENTER, fontSize=12, textColor=NAVY)))
     story.append(Spacer(1, 5*mm))

@@ -28,5 +28,11 @@ class Config:
     # Engine Options
     SQLALCHEMY_ENGINE_OPTIONS = {
         'pool_pre_ping': True,
-        'connect_args': {'check_same_thread': False} if 'sqlite' in (db_url or 'sqlite') else {}
     }
+    
+    # SQLite-specific options
+    if 'sqlite' in (db_url or 'sqlite'):
+        from sqlalchemy.pool import StaticPool
+        SQLALCHEMY_ENGINE_OPTIONS['connect_args'] = {'check_same_thread': False}
+        if SQLALCHEMY_DATABASE_URI == 'sqlite:///:memory:':
+            SQLALCHEMY_ENGINE_OPTIONS['poolclass'] = StaticPool

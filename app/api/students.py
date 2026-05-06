@@ -156,9 +156,8 @@ def student_excel_template():
 
 @api.route('/students/bulk', methods=['POST'])
 @login_required
-@limiter.limit("10 per hour")
 def bulk_upload_students():
-    if current_user.role != 'admin':
+    if current_user.role not in ['admin', 'coe']:
         logging.warning(f"Unauthorized student upload attempt by {current_user.username}")
         return jsonify({'message': 'Access denied'}), 403
 

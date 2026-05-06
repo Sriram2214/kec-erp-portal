@@ -7,21 +7,13 @@ load_dotenv(os.path.join(basedir, '.env'))
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY', 'kce_default_dev_key')
     
-    # Use PostgreSQL if DATABASE_URL is set, otherwise use SQLite
+    # Use PostgreSQL if DATABASE_URL is set, otherwise use Supabase
     db_url = os.environ.get('DATABASE_URL')
     if db_url and db_url.startswith("postgres://"):
         db_url = db_url.replace("postgres://", "postgresql://", 1)
         
-    # Vercel Read-Only Fix: Use in-memory SQLite to bypass all disk errors
-    if os.environ.get('VERCEL') == '1' or os.environ.get('VERCEL_ENV') or not os.access(".", os.W_OK):
-        SQLALCHEMY_DATABASE_URI = db_url or 'sqlite:///:memory:'
-    else:
-        # Create instance dir if not exists locally
-        instance_path = os.path.join(basedir, 'instance')
-        if not os.path.exists(instance_path):
-            try: os.makedirs(instance_path)
-            except: pass
-        SQLALCHEMY_DATABASE_URI = db_url or 'sqlite:///' + os.path.join(instance_path, 'app.db')
+    SUPABASE_URL = "postgresql://postgres:D2Nt%3F*jSEY6.x2m@db.naxwsjkozltjxxrqetrk.supabase.co:5432/postgres"
+    SQLALCHEMY_DATABASE_URI = db_url or SUPABASE_URL
     
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 

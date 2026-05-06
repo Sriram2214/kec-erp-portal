@@ -54,41 +54,39 @@ def create_app(config_class=Config):
 
     from flask_talisman import Talisman
 
-    Talisman(app, content_security_policy=None, force_https=False)  # Disable HTTPS force for local dev
+    is_prod = os.environ.get('VERCEL') == '1'
+    Talisman(app, 
+             content_security_policy=None, 
+             force_https=is_prod,
+             strict_transport_security=is_prod)
 
     from app.auth import auth_bp
-
     app.register_blueprint(auth_bp, url_prefix="/auth")
 
     @app.route("/api/health")
     def health():
         return {"status": "ok", "service": "kec_erp", "database": "connected"}
 
-    # ── Modular API routes ────────────────────────────────────────────────
     from app.api import api as api_bp
-
-    app.register_blueprint(api_bp)  # FIXED: Missing registration
+    app.register_blueprint(api_bp)
     csrf.exempt(api_bp)
     limiter.exempt(api_bp)
     
     from app.api.init import init_bp
     app.register_blueprint(init_bp)
-    # ───────────────────────────────────────────────────────────────────
 
     from app.core import core_bp
     app.register_blueprint(core_bp)
 
     from app.errors import register_error_handlers
-
     register_error_handlers(app)
 
-    # Talisman: Only force HTTPS in production
-    is_prod = os.environ.get('VERCEL') == '1' or os.environ.get('FLASK_ENV') == 'production'
-    from flask_talisman import Talisman
-    Talisman(app, 
-             content_security_policy=None, 
-             force_https=is_prod,
-             strict_transport_security=is_prod)
+    @login_manager.unauthorized_handler
+    def unauthorized():
+        from flask import request, jsonify, redirect, url_for
+        if request.path.startswith('/api/'):
+            return jsonify({'message': 'Unauthorized'}), 401
+        return redirect(url_for('auth.login'))
 
     @app.before_request
     def log_request_info():

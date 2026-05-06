@@ -8,7 +8,7 @@ class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY', 'kce_default_dev_key')
     
     # Force Supabase URL (Ignore Vercel environment variables which might be stuck on sqlite)
-    SUPABASE_URL = "postgresql://postgres:D2Nt%3F*jSEY6.x2m@db.naxwsjkozltjxxrqetrk.supabase.co:5432/postgres"
+    SUPABASE_URL = "postgresql://postgres.naxwsjkozltjxxrqetrk:D2Nt%3F*jSEY6.x2m@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres"
     SQLALCHEMY_DATABASE_URI = SUPABASE_URL
     
     SQLALCHEMY_TRACK_MODIFICATIONS = False

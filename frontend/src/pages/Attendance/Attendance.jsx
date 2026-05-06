@@ -16,6 +16,27 @@ const Icon = {
   Save:    () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:16}}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>,
 }
 
+// ── Toast Component ─────────────────────────────────────────────────
+function Toast({ toasts }) {
+  return (
+    <div style={{ position:'fixed', bottom:'5rem', right:'1.5rem', zIndex:9999, display:'flex', flexDirection:'column', gap:'0.5rem' }}>
+      {toasts.map(t => (
+        <div key={t.id} style={{
+          background: t.type === 'success' ? '#16a34a' : t.type === 'error' ? '#dc2626' : '#1a2a5e',
+          color: '#fff', padding: '0.75rem 1.2rem', borderRadius: '10px',
+          fontSize: '0.85rem', fontWeight: 600, boxShadow: '0 4px 20px rgba(0,0,0,0.25)',
+          display: 'flex', alignItems: 'center', gap: '0.6rem',
+          animation: 'slideInRight 0.3s ease',
+          minWidth: '260px'
+        }}>
+          <span>{t.type === 'success' ? '✓' : t.type === 'error' ? '✕' : 'ℹ'}</span>
+          <span>{t.message}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default function Attendance() {
   const [courseCode,   setCourseCode]   = useState('')
   const [courseInfo,   setCourseInfo]   = useState(null)
@@ -28,12 +49,19 @@ export default function Attendance() {
   const [saving,       setSaving]       = useState(false)
   const [error,        setError]        = useState('')
   const [saved,        setSaved]        = useState(false)
+  const [toasts,       setToasts]       = useState([])
   const [pdfLoading,   setPdfLoading]   = useState(false)
   const [coverLoading, setCoverLoading] = useState(false)
   const [despLoading,  setDespLoading]  = useState(false)
   const [dummyLoading, setDummyLoading] = useState(false)
   const [currentPage,  setCurrentPage]  = useState(1)
-  const studentsPerPage = 30
+  const studentsPerPage = 50
+
+  const showToast = (message, type = 'success') => {
+    const id = Date.now()
+    setToasts(prev => [...prev, { id, message, type }])
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000)
+  }
   
   const [searchParams] = useSearchParams()
   const inputRef = useRef(null)
@@ -104,15 +132,19 @@ export default function Attendance() {
     if (!courseInfo) return
     setSaving(true); setSaved(false)
     try {
-      await api.post('/ese/attendance', {
+      const res = await api.post('/ese/attendance', {
         course_code: courseInfo.course_code,
         exam_date:   examDate,
         session,
         entries: students.map(s => ({ student_id: s.id, status: s.status })),
       })
       setSaved(true)
+      const d = res.data
+      showToast(`✓ Saved ${d.saved} records — Absent: ${d.absent}, MP: ${d.malpractice}`, 'success')
     } catch (e) {
-      setError(e.response?.data?.message || 'Save failed.')
+      const msg = e.response?.data?.message || 'Save failed.'
+      setError(msg)
+      showToast(msg, 'error')
     } finally {
       setSaving(false)
     }
@@ -194,6 +226,7 @@ export default function Attendance() {
 
   return (
     <div className="ese-page fade-in">
+      <Toast toasts={toasts} />
       {/* ── Page Header ── */}
       <div className="page-header">
         <div className="breadcrumb">KEC ERP › ESE Attendance</div>
@@ -244,6 +277,16 @@ export default function Attendance() {
       {/* ── Course Info (auto-populated) ── */}
       {courseInfo && (
         <div className="card ese-info-card">
+          {courseInfo.source === 'semester_fallback' && (
+            <div style={{ background:'#fffbeb', border:'1px solid #fde68a', borderRadius:8, padding:'0.6rem 1rem', marginBottom:'1rem', fontSize:'0.82rem', color:'#92400e', display:'flex', alignItems:'center', gap:'0.5rem' }}>
+              <Icon.Warning /> No CourseRegistration records found — showing all <strong>Sem {courseInfo.semester}</strong> students across all departments.
+            </div>
+          )}
+          {courseInfo.source === 'course_registration' && (
+            <div style={{ background:'#f0fdf4', border:'1px solid #bbf7d0', borderRadius:8, padding:'0.6rem 1rem', marginBottom:'1rem', fontSize:'0.82rem', color:'#166534', display:'flex', alignItems:'center', gap:'0.5rem' }}>
+              ✓ Loaded <strong>{courseInfo.total}</strong> registered students (incl. backlogs) across all departments.
+            </div>
+          )}
           <div className="ese-info-grid">
             <div className="ese-info-item">
               <span className="ese-info-label">Course Code</span>
@@ -254,12 +297,16 @@ export default function Attendance() {
               <span className="ese-info-val">{courseInfo.course_title}</span>
             </div>
             <div className="ese-info-item">
-              <span className="ese-info-label">Department</span>
+              <span className="ese-info-label">Dept (Owner)</span>
               <span className="ese-info-val">{courseInfo.department}</span>
             </div>
             <div className="ese-info-item">
               <span className="ese-info-label">Semester</span>
               <span className="ese-info-val">{courseInfo.semester}</span>
+            </div>
+            <div className="ese-info-item">
+              <span className="ese-info-label">Total Students</span>
+              <span className="ese-info-val" style={{color:'var(--gold)',fontWeight:700}}>{courseInfo.total ?? students.length}</span>
             </div>
             <div className="ese-info-item">
               <span className="ese-info-label">Exam Date</span>

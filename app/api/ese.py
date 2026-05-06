@@ -1,7 +1,7 @@
 from flask import jsonify, request, send_file
 from flask_login import login_required, current_user
 from app.api import api
-from app.models import (Student, Course, ExamSchedule, Attendance, 
+from app.models import (Student, Course, ExamSchedule, Attendance, CourseRegistration,
                         AcademicYear, DummySticker, FoilMark, FeeClearance)
 from app import db, limiter
 from app.utils.logger import audit_log
@@ -81,10 +81,13 @@ def get_courses_by_date():
         })
     return jsonify(results)
 
+# ── GET /api/ese/students?course_code=XXX
+# ── GET /api/exam-attendance/<course_code>  (alias)
 @api.route('/ese/students', methods=['GET'])
+@api.route('/exam-attendance/<path:course_code>', methods=['GET'])
 @login_required
-def ese_students():
-    code = request.args.get('course_code', '').strip().upper()
+def ese_students(course_code=None):
+    code = (course_code or request.args.get('course_code', '')).strip().upper()
     if not code:
         return jsonify({'message': 'course_code required'}), 400
 
@@ -93,30 +96,46 @@ def ese_students():
         return jsonify({'message': f'Course "{code}" not found'}), 404
 
     schedule = ExamSchedule.query.filter_by(course_id=course.id).first()
+
+    # ── Load existing attendance map ──────────────────────────────────
     existing = {}
     if schedule:
         for att in Attendance.query.filter_by(exam_schedule_id=schedule.id).all():
             existing[att.student_id] = att.status
 
-    students = Student.query.filter_by(
-        semester=course.semester
-    ).order_by(Student.department, Student.register_number).all()
+    # ── Fetch eligible students (CourseRegistration JOIN + semester fallback) ─
+    # Priority 1: Students explicitly registered for this course via CourseRegistration
+    registered_ids = set()
+    regs = CourseRegistration.query.filter_by(course_id=course.id).all()
+    for r in regs:
+        registered_ids.add(r.student_id)
 
-    # Auto-generate dummy numbers if missing
+    if registered_ids:
+        # Use registered students (includes backlogs from any dept)
+        students = Student.query.filter(
+            Student.id.in_(registered_ids)
+        ).order_by(Student.register_number).all()
+    else:
+        # Fallback: all students in same semester across ALL departments
+        students = Student.query.filter_by(
+            semester=course.semester
+        ).order_by(Student.department, Student.register_number).all()
+
+    # ── Auto-generate dummy stickers if schedule exists ───────────────
     if schedule:
+        needs_commit = False
+        existing_sticker_ids = {
+            ds.student_id
+            for ds in DummySticker.query.filter_by(exam_schedule_id=schedule.id).all()
+        }
         for s in students:
-            # Check if dummy exists
-            ds = DummySticker.query.filter_by(student_id=s.id, exam_schedule_id=schedule.id).first()
-            if not ds:
-                # Generate unique dummy number
+            if s.id not in existing_sticker_ids:
                 dept_prefix = (s.department or 'GEN')[:3].upper()
-                while True:
+                for _ in range(20):  # max 20 retries
                     rand_part = ''.join(random.choices(string.digits, k=5))
                     dummy_no = f"24{dept_prefix}{rand_part}"
-                    # Check uniqueness
                     if not DummySticker.query.filter_by(dummy_number=dummy_no).first():
                         break
-                
                 ds = DummySticker(
                     student_id=s.id,
                     exam_schedule_id=schedule.id,
@@ -124,9 +143,11 @@ def ese_students():
                     foil_number=str(random.randint(1000, 9999))
                 )
                 db.session.add(ds)
-        db.session.commit()
+                needs_commit = True
+        if needs_commit:
+            db.session.commit()
 
-    # Fetch stickers again for the response
+    # ── Fetch sticker map ─────────────────────────────────────────────
     stickers = {}
     if schedule:
         for ds in DummySticker.query.filter_by(exam_schedule_id=schedule.id).all():
@@ -140,35 +161,45 @@ def ese_students():
         'exam_date':    schedule.exam_date.strftime('%d.%m.%Y') if schedule and schedule.exam_date else None,
         'session':      schedule.session if schedule else None,
         'schedule_id':  schedule.id if schedule else None,
+        'total':        len(students),
+        'source':       'course_registration' if registered_ids else 'semester_fallback',
         'students': [{
             'id':              s.id,
             'register_number': s.register_number,
             'name':            s.name,
             'department':      s.department,
             'batch':           s.batch,
+            'semester':        s.semester,
             'status':          existing.get(s.id, 'Present'),
-            'dummy_number':    stickers.get(s.id, 'Not Gen')
+            'dummy_number':    stickers.get(s.id, '—')
         } for s in students]
     })
 
+
 @api.route('/ese/attendance', methods=['POST'])
+@api.route('/save-attendance', methods=['POST'])
 @login_required
 def save_ese_attendance():
     data = request.get_json()
     code    = data.get('course_code', '').strip().upper()
     entries = data.get('entries', [])
 
+    if not code:
+        return jsonify({'message': 'course_code required'}), 400
+    if not entries:
+        return jsonify({'message': 'No attendance entries provided'}), 400
+
     course = Course.query.filter(Course.course_code.ilike(code)).first()
     if not course:
-        return jsonify({'message': 'Course not found'}), 404
+        return jsonify({'message': f'Course "{code}" not found'}), 404
 
-    exam_date_str = data.get('exam_date', '')
-    session_val   = data.get('session', 'FN')
+    # ── Find or auto-create exam schedule ────────────────────────────
     schedule = ExamSchedule.query.filter_by(course_id=course.id).first()
-
-    if not schedule and exam_date_str:
+    if not schedule:
+        exam_date_str = data.get('exam_date', '')
+        session_val   = data.get('session', 'FN')
         try:
-            edate = datetime.datetime.strptime(exam_date_str, '%Y-%m-%d').date()
+            edate = datetime.datetime.strptime(exam_date_str, '%Y-%m-%d').date() if exam_date_str else datetime.date.today()
         except Exception:
             edate = datetime.date.today()
         ay = AcademicYear.query.filter_by(is_current=True).first()
@@ -181,13 +212,13 @@ def save_ese_attendance():
         db.session.add(schedule)
         db.session.flush()
 
-    if not schedule:
-        return jsonify({'message': 'No exam schedule found. Add exam date first.'}), 400
-
+    # ── Upsert attendance records ─────────────────────────────────────
     saved = 0
     for entry in entries:
         sid    = entry.get('student_id')
         status = entry.get('status', 'Present')
+        if not sid:
+            continue
         att = Attendance.query.filter_by(
             student_id=sid, exam_schedule_id=schedule.id
         ).first()
@@ -199,7 +230,17 @@ def save_ese_attendance():
         saved += 1
 
     db.session.commit()
-    return jsonify({'message': f'{saved} attendance record(s) saved.'})
+    audit_log.log('SAVE_ESE_ATTENDANCE', {'course': code, 'count': saved, 'by': current_user.username})
+
+    absent_count = sum(1 for e in entries if e.get('status') == 'Absent')
+    mp_count     = sum(1 for e in entries if e.get('status') == 'Malpractice')
+    return jsonify({
+        'message': f'{saved} attendance record(s) saved.',
+        'saved': saved,
+        'absent': absent_count,
+        'malpractice': mp_count,
+        'schedule_id': schedule.id
+    })
 
 @api.route('/ese/attendance-pdf', methods=['GET'])
 @login_required

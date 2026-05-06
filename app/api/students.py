@@ -77,7 +77,6 @@ def delete_student(sid):
     return jsonify({'message': 'Deleted'})
 
 @api.route('/students/template', methods=['GET'])
-@login_required
 def student_excel_template():
     wb = openpyxl.Workbook()
     ws = wb.active

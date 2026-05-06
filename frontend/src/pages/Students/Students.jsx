@@ -68,6 +68,7 @@ export default function Students() {
   useEffect(() => {
     load()
   }, [page])
+  useEffect(() => {
     api.get('/master')
       .then(r => {
         if (r.data && r.data.departments && r.data.departments.length > 0) {

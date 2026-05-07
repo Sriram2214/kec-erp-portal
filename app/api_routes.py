@@ -111,19 +111,18 @@ def add_student():
         return jsonify({'message': 'Required fields missing'}), 400
     if Student.query.filter_by(register_number=d['register_number'].strip().upper()).first():
         return jsonify({'message': 'Register number already exists'}), 409
-    s = Student(
-        register_number = d['register_number'].strip().upper(),
-        name            = d['name'].strip(),
-        department      = d['department'].strip(),
-        batch           = d['batch'].strip(),
-        academic_year   = int(d['academic_year']),
-        semester        = int(d.get('semester') or 1),
-        degree          = d.get('degree', 'BE'),
-        regulation      = d.get('regulation', 'R2021'),
-        email           = d.get('email', ''),
-        phone           = d.get('phone', ''),
-        dob             = d.get('dob', ''),
-    )
+    s = Student()
+    s.register_number = d['register_number'].strip().upper()
+    s.name            = d['name'].strip()
+    s.department      = d['department'].strip()
+    s.batch           = d['batch'].strip()
+    s.academic_year   = int(d['academic_year'])
+    s.semester        = int(d.get('semester') or 1)
+    s.degree          = d.get('degree', 'BE')
+    s.regulation      = d.get('regulation', 'R2021')
+    s.email           = d.get('email', '')
+    s.phone           = d.get('phone', '')
+    s.dob             = d.get('dob', '')
     db.session.add(s)
     db.session.commit()
     return jsonify({'message': 'Student added', 'id': s.id}), 201
@@ -286,12 +285,19 @@ def bulk_upload_students():
                 skipped += 1
                 continue
 
-            batch.append(Student(
-                register_number=reg, name=name, department=dept,
-                degree=deg, batch=bt, academic_year=yr,
-                semester=sem, regulation=reg_n,
-                email=email, phone=phone, dob=dob
-            ))
+            s = Student()
+            s.register_number = reg
+            s.name            = name
+            s.department      = dept
+            s.degree          = deg
+            s.batch           = bt
+            s.academic_year   = yr
+            s.semester        = sem
+            s.regulation      = reg_n
+            s.email           = email
+            s.phone           = phone
+            s.dob             = dob
+            batch.append(s)
             existing_regs.add(reg)  # prevent duplicates within same file
             added += 1
         except Exception as e:
@@ -329,14 +335,13 @@ def add_faculty():
         return jsonify({'message': 'All fields required'}), 400
     if Faculty.query.filter_by(employee_id=d['employee_id'].strip().upper()).first():
         return jsonify({'message': 'Employee ID already exists'}), 409
-    f = Faculty(
-        employee_id = d['employee_id'].strip().upper(),
-        name        = d['name'].strip(),
-        department  = d['department'].strip(),
-        designation = d.get('designation', ''),
-        email       = d.get('email', ''),
-        phone       = d.get('phone', ''),
-    )
+    f = Faculty()
+    f.employee_id = d['employee_id'].strip().upper()
+    f.name        = d['name'].strip()
+    f.department  = d['department'].strip()
+    f.designation = d.get('designation', '')
+    f.email       = d.get('email', '')
+    f.phone       = d.get('phone', '')
     db.session.add(f)
     db.session.commit()
     return jsonify({'message': 'Faculty added', 'id': f.id}), 201
@@ -389,7 +394,9 @@ def add_staff():
         return jsonify({'message': 'All fields required'}), 400
     if User.query.filter_by(username=d['username'].strip()).first():
         return jsonify({'message': 'Username already exists'}), 409
-    u = User(username=d['username'].strip(), role=d['role'])
+    u = User()
+    u.username = d['username'].strip()
+    u.role     = d.get('role', 'staff')
     u.set_password(d['password'])
     db.session.add(u)
     db.session.commit()
@@ -569,12 +576,11 @@ def save_ese_attendance():
         except Exception:
             edate = datetime.date.today()
         ay = AcademicYear.query.filter_by(is_current=True).first()
-        schedule = ES(
-            course_id        = course.id,
-            exam_date        = edate,
-            session          = session_val,
-            academic_year_id = ay.id if ay else None,
-        )
+        schedule = ES()
+        schedule.course_id        = course.id
+        schedule.exam_date        = edate
+        schedule.session          = session_val
+        schedule.academic_year_id = ay.id if ay else None
         db.session.add(schedule)
         db.session.flush()
 
@@ -592,7 +598,10 @@ def save_ese_attendance():
         if att:
             att.status = status
         else:
-            att = Attendance(student_id=sid, exam_schedule_id=schedule.id, status=status)
+            att = Attendance()
+            att.student_id       = sid
+            att.exam_schedule_id = schedule.id
+            att.status           = status
             db.session.add(att)
         saved += 1
 
@@ -1338,12 +1347,11 @@ def ese_dummy_upload():
                 existing.dummy_number = dummy_no
                 existing.foil_number  = foil_no
             else:
-                ds = DummySticker(
-                    student_id       = student.id,
-                    exam_schedule_id = schedule.id,
-                    dummy_number     = dummy_no,
-                    foil_number      = foil_no,
-                )
+                ds = DummySticker()
+                ds.student_id       = student.id
+                ds.exam_schedule_id = schedule.id
+                ds.dummy_number     = dummy_no
+                ds.foil_number      = foil_no
                 db.session.add(ds)
             added += 1
         except Exception as e:

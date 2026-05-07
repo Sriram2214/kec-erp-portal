@@ -15,10 +15,20 @@ def seed():
             ('RAA', 'Robotics and Automation')
         ]
         
+        from app.models import Degree
+        deg = Degree.query.first()
+        if not deg:
+            deg = Degree()
+            deg.name = 'B.E'
+            db.session.add(deg); db.session.commit()
+
         for code, name in depts:
             existing = Department.query.filter_by(code=code).first()
             if not existing:
-                d = Department(code=code, name=name, degree_id=1)
+                d = Department()
+                d.code = code
+                d.name = name
+                d.degree_id = deg.id
                 db.session.add(d)
                 print(f"Added {code}")
             else:

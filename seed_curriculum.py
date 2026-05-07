@@ -96,10 +96,11 @@ def seed_curriculum(file_path):
                     batch_id=batch_id, regulation_id=reg_id
                 ).first()
                 if not curr:
-                    curr = Curriculum(
-                        degree_id=degree_id, department_id=dept_id,
-                        batch_id=batch_id, regulation_id=reg_id
-                    )
+                    curr = Curriculum()
+                    curr.degree_id     = degree_id
+                    curr.department_id = dept_id
+                    curr.batch_id      = batch_id
+                    curr.regulation_id = reg_id
                     db.session.add(curr)
                     db.session.flush()
                     added_curriculums += 1
@@ -117,15 +118,14 @@ def seed_curriculum(file_path):
             # Avoid duplicates within same curriculum
             existing_course = Course.query.filter_by(curriculum_id=curr_id, course_code=code).first()
             if not existing_course:
-                course = Course(
-                    curriculum_id=curr_id,
-                    course_code=code,
-                    course_title=title,
-                    semester=sem,
-                    credits=credits,
-                    is_lab=is_lab
-                )
-                db.session.add(course)
+                new_course = Course()
+                new_course.course_code   = code
+                new_course.course_title  = title
+                new_course.curriculum_id = curr_id
+                new_course.credits       = credits
+                new_course.semester      = sem
+                new_course.is_lab        = is_lab
+                db.session.add(new_course)
                 added_courses += 1
 
             if (added_courses) % 100 == 0:

@@ -3,7 +3,7 @@ Seed comprehensive KEC R2021 courses for all depts & semesters.
 Run once: python seed_courses.py
 """
 from app import create_app, db
-from app.models import Course
+from app.models import Course, Degree, Department, Batch, Regulation, Curriculum
 
 app = create_app()
 
@@ -103,18 +103,54 @@ COURSES = [
 
 def seed():
     with app.app_context():
+        # Ensure base master data exists for common depts
+        def get_or_create_curr(dept_code, batch_label, reg_name):
+            deg = Degree.query.first()
+            if not deg:
+                deg = Degree(name='B.E')
+                db.session.add(deg); db.session.commit()
+
+            d = Department.query.filter_by(code=dept_code).first()
+            if not d: 
+                d = Department(code=dept_code, name=dept_code, degree_id=deg.id)
+                db.session.add(d); db.session.commit()
+            
+            b = Batch.query.filter_by(label=batch_label).first()
+            if not b:
+                b = Batch(label=batch_label)
+                db.session.add(b); db.session.commit()
+            
+            r = Regulation.query.filter_by(name=reg_name).first()
+            if not r:
+                r = Regulation(name=reg_name)
+                db.session.add(r); db.session.commit()
+            
+            c = Curriculum.query.filter_by(department_id=d.id, batch_id=b.id, regulation_id=r.id).first()
+            if not c:
+                c = Curriculum(department_id=d.id, batch_id=b.id, regulation_id=r.id)
+                db.session.add(c); db.session.commit()
+            return c
+
         added = 0
         skipped = 0
         for code, title, dept, sem, credits, is_lab in COURSES:
-            if Course.query.filter(Course.course_code.ilike(code)).first():
+            # We assume R2021 and 2023-2027 batch for these general seeds
+            curr = get_or_create_curr(dept if dept != 'COMMON' else 'CSE', '2023-2027', 'R2021')
+            
+            if Course.query.filter_by(course_code=code, curriculum_id=curr.id).first():
                 skipped += 1
                 continue
+                
             db.session.add(Course(
-                course_code=code, course_title=title,
-                department=dept, semester=sem,
-                credits=credits, is_lab=is_lab, regulation='R2021'
+                course_code=code, 
+                course_title=title,
+                curriculum_id=curr.id,
+                semester=sem,
+                credits=credits, 
+                is_lab=is_lab
             ))
             added += 1
+            
         db.session.commit()
         print(f'Done! Added {added} courses, skipped {skipped} duplicates.')
         print(f'Total courses in DB: {Course.query.count()}')

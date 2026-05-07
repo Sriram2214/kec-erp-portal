@@ -88,7 +88,18 @@ def update_revaluation_mark():
     d = request.get_json()
     foil = FoilMark.query.get_or_404(d.get('foil_id'))
     foil.external_mark = float(d.get('new_mark'))
-    foil.grade = 'A' # Mock calculation logic reuse
+    
+    # Recalculate Grade
+    sticker = DummySticker.query.filter_by(dummy_number=foil.dummy_number, course_id=foil.course_id).first()
+    int_val = 0
+    if sticker:
+        internal = InternalMarks.query.filter_by(student_id=sticker.student_id, course_id=foil.course_id).first()
+        int_val = internal.marks if internal else 0
+    
+    total = int_val + foil.external_mark
+    grade_obj = GradeScale.query.filter(GradeScale.min_mark <= total, GradeScale.max_mark >= total).first()
+    foil.grade = grade_obj.grade if grade_obj else 'U'
+    
     db.session.commit()
     audit_log.log("REVALUATION_MARK_UPDATED", {"foil_id": foil.id, "new_mark": foil.external_mark})
     return jsonify({'message': 'Revaluation mark updated successfully!'})

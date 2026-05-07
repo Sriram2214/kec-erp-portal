@@ -60,12 +60,16 @@ def report_attendance_summary():
     students = students.all()
     res = []
     for s in students:
-        total_classes = 100
-        attended = 85
+        # Fetch internal marks which stores attendance %
+        # We take the average across all courses for this student
+        im_records = InternalMarks.query.filter_by(student_id=s.id).all()
+        avg_att = sum(m.attendance for m in im_records if m.attendance is not None) / len(im_records) if im_records else 0
+        
         res.append({
             'regno': s.register_number, 'name': s.name,
-            'total_hours': total_classes, 'attended_hours': attended,
-            'percentage': (attended/total_classes * 100)
+            'total_hours': 100, # Placeholder for total hours if not tracked
+            'attended_hours': avg_att, # Storing % in attended_hours for simplicity in this report
+            'percentage': avg_att
         })
     return jsonify(res)
 

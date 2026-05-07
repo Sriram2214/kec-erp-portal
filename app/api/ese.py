@@ -84,43 +84,28 @@ def ese_students(course_code=None):
 
     schedule = ExamSchedule.query.filter_by(course_id=course.id).first()
 
-    # ── Load existing attendance map ──────────────────────────────────
-    existing = {}
-    if schedule:
-        for att in Attendance.query.filter_by(exam_schedule_id=schedule.id).all():
-            existing[att.student_id] = att.status
-
-    # ── Fetch eligible students (CourseRegistration JOIN + semester fallback) ─
-    # Priority 1: Students explicitly registered for this course via CourseRegistration
-    registered_ids = set()
+        # ── Strict CourseRegistration Query with Curriculum Safety ──
     regs = CourseRegistration.query.filter_by(course_id=course.id).all()
-    for r in regs:
-        registered_ids.add(r.student_id)
+    reg_ids = [r.student_id for r in regs]
+    
+    students = Student.query.filter(
+        Student.id.in_(reg_ids),
+        Student.department == course.curriculum.department.code,
+        Student.batch == course.curriculum.batch.label,
+        Student.regulation == course.curriculum.regulation.name
+    ).order_by(Student.register_number).all()\n    print(f"[ESE Students] Course: {course.course_code} (ID: {course.id}) | Regs: {len(reg_ids)} | Filtered: {len(students)}")\n    source = 'course_registration'\n    
+    source = 'course_registration'
 
-    if registered_ids:
-        # Use registered students (includes backlogs from any dept)
-        students = Student.query.filter(
-            Student.id.in_(registered_ids)
-        ).order_by(Student.register_number).all()
-    else:
-        # Fallback: all students in same semester across ALL departments
-        students = Student.query.filter_by(
-            semester=course.semester
-        ).order_by(Student.department, Student.register_number).all()
-
-    # ── High-Performance Dummy Sticker Generation ───────────────
+    # ── High-Performance Dummy Sticker Generation (Only if missing) ──
     if schedule:
-        existing_stickers = DummySticker.query.filter_by(exam_schedule_id=schedule.id).all()
-        existing_student_ids = {ds.student_id for ds in existing_stickers}
-        
-        # Pre-fetch all dummy numbers for this schedule to avoid duplicates in-memory
-        used_dummy_nos = {ds.dummy_number for ds in existing_stickers}
-        
-        new_stickers = []
-        for s in students:
-            if s.id not in existing_student_ids:
+        to_generate = [s for s in students if s.id not in stickers]
+        if to_generate:
+            used_dummy_nos = set(stickers.values())
+            # Also fetch other dummy nos for THIS schedule just in case (though stickers should have them)
+            
+            new_stickers = []
+            for s in to_generate:
                 dept_prefix = (s.department or 'GEN')[:3].upper()
-                # Generate a unique dummy number without per-student DB hits
                 while True:
                     rand_part = ''.join(random.choices(string.digits, k=5))
                     dummy_no = f"24{dept_prefix}{rand_part}"
@@ -128,24 +113,21 @@ def ese_students(course_code=None):
                         used_dummy_nos.add(dummy_no)
                         break
                 
-                new_stickers.append(DummySticker(
+                ds_obj = DummySticker(
                     student_id=s.id,
                     exam_schedule_id=schedule.id,
                     dummy_number=dummy_no,
                     foil_number=str(random.randint(1000, 9999))
-                ))
-        
-        if new_stickers:
-            db.session.bulk_save_objects(new_stickers)
-            db.session.commit()
-
-    # ── Fetch sticker map ─────────────────────────────────────────────
-    stickers = {}
-    if schedule:
-        for ds in DummySticker.query.filter_by(exam_schedule_id=schedule.id).all():
-            stickers[ds.student_id] = ds.dummy_number
+                )
+                new_stickers.append(ds_obj)
+                stickers[s.id] = dummy_no # Update local map
+            
+            if new_stickers:
+                db.session.bulk_save_objects(new_stickers)
+                db.session.commit()
 
     return jsonify({
+        'course_id':    course.id,
         'course_code':  course.course_code,
         'course_title': course.course_title,
         'department':   course.curriculum.department.code,
@@ -155,7 +137,7 @@ def ese_students(course_code=None):
         'venue':        schedule.venue if schedule else None,
         'schedule_id':  schedule.id if schedule else None,
         'total':        len(students),
-        'source':       'course_registration' if registered_ids else 'semester_fallback',
+        'source':       source,
         'students': [{
             'id':              s.id,
             'register_number': s.register_number,
@@ -245,12 +227,20 @@ def save_ese_attendance():
 @api.route('/ese/attendance-pdf', methods=['GET'])
 @login_required
 def ese_attendance_pdf():
-    code = request.args.get('course_code', '').strip().upper()
-    dept_filter = request.args.get('department', '').strip()
-    
-    course = Course.query.filter(Course.course_code.ilike(code)).first()
-    if not course:
-        return jsonify({'message': 'Course not found'}), 404
+    course_id = request.args.get('course_id')
+    if course_id:
+        course = Course.query.get_or_404(course_id)
+    else:
+        code = request.args.get('course_code', '').strip().upper()
+        # Smart search: find course with this code that has registrations
+        potential_courses = Course.query.filter(Course.course_code.ilike(code)).all()
+        course = None
+        for pc in potential_courses:
+            if CourseRegistration.query.filter_by(course_id=pc.id).first():
+                course = pc
+                break
+        if not course and potential_courses: course = potential_courses[0]
+        if not course: return jsonify({'message': 'Course not found'}), 404
 
     schedule = ExamSchedule.query.filter_by(course_id=course.id).first()
     ay = AcademicYear.query.filter_by(is_current=True).first()
@@ -260,11 +250,16 @@ def ese_attendance_pdf():
         for att in Attendance.query.filter_by(exam_schedule_id=schedule.id).all():
             existing[att.student_id] = att.status
 
-    query = Student.query.filter_by(semester=course.semester)
-    if dept_filter:
-        query = query.filter_by(department=dept_filter)
+        # ── Strict CourseRegistration Query with Curriculum Safety ──
+    regs = CourseRegistration.query.filter_by(course_id=course.id).all()
+    reg_ids = [r.student_id for r in regs]
     
-    students = query.order_by(Student.department, Student.register_number).all()
+    students = Student.query.filter(
+        Student.id.in_(reg_ids),
+        Student.department == course.curriculum.department.code,
+        Student.batch == course.curriculum.batch.label,
+        Student.regulation == course.curriculum.regulation.name
+    ).order_by(Student.register_number).all()\n    print(f"[ATT PDF] Course: {course.course_code} (ID: {course.id}) | Regs: {len(reg_ids)} | PDF Students: {len(students)}")\n    
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(
@@ -394,15 +389,26 @@ def ese_attendance_pdf():
 
     doc.build(story)
     buf.seek(0)
-    filename = f'ESE_Attendance_{code}_{dept_filter or "ALL"}.pdf'
+    filename = f'ESE_Attendance_{course.course_code}_{course.curriculum.department.code}.pdf'
     return send_file(buf, as_attachment=True, download_name=filename, mimetype='application/pdf')
 
 @api.route('/ese/cover-sheet-pdf', methods=['GET'])
 @login_required
 def ese_cover_sheet_pdf():
-    code = request.args.get('course_code', '').strip().upper()
-    course = Course.query.filter(Course.course_code.ilike(code)).first()
-    if not course: return jsonify({'message': 'Course not found'}), 404
+    course_id = request.args.get('course_id')
+    if course_id:
+        course = Course.query.get_or_404(course_id)
+    else:
+        code = request.args.get('course_code', '').strip().upper()
+        # Smart search: find course with this code that has registrations
+        potential_courses = Course.query.filter(Course.course_code.ilike(code)).all()
+        course = None
+        for pc in potential_courses:
+            if CourseRegistration.query.filter_by(course_id=pc.id).first():
+                course = pc
+                break
+        if not course and potential_courses: course = potential_courses[0]
+        if not course: return jsonify({'message': 'Course not found'}), 404
 
     schedule = ExamSchedule.query.filter_by(course_id=course.id).first()
     ay = AcademicYear.query.filter_by(is_current=True).first()
@@ -412,22 +418,16 @@ def ese_cover_sheet_pdf():
         for att in Attendance.query.filter_by(exam_schedule_id=schedule.id).all():
             existing[att.student_id] = att.status
 
-    all_students = Student.query.filter_by(semester=course.semester).order_by(Student.department, Student.register_number).all()
-    present_students = [s for s in all_students if existing.get(s.id, 'Present') == 'Present']
-    total_present = len(present_students)
-    BUNDLE_SIZE = 30
-    num_bundles = max(1, math.ceil(total_present / BUNDLE_SIZE))
-
-    # Fetch dummy stickers for present students
-    sticker_map = {}
-    if schedule:
-        for ds in DummySticker.query.filter_by(exam_schedule_id=schedule.id).all():
-            sticker_map[ds.student_id] = ds.dummy_number
-
-    # Build ordered list of dummy numbers for present students
-    present_dummies = []
-    for s in present_students:
-        present_dummies.append(sticker_map.get(s.id, ''))
+        # ── Strict CourseRegistration Query with Curriculum Safety ──
+    regs = CourseRegistration.query.filter_by(course_id=course.id).all()
+    reg_ids = [r.student_id for r in regs]
+    
+    all_students = Student.query.filter(
+        Student.id.in_(reg_ids),
+        Student.department == course.curriculum.department.code,
+        Student.batch == course.curriculum.batch.label,
+        Student.regulation == course.curriculum.regulation.name
+    ).order_by(Student.register_number).all()\n    
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=15*mm, rightMargin=15*mm, topMargin=12*mm, bottomMargin=15*mm)
@@ -485,14 +485,25 @@ def ese_cover_sheet_pdf():
         if bundle_idx < num_bundles - 1: story.append(PageBreak())
 
     doc.build(story); buf.seek(0)
-    return send_file(buf, as_attachment=True, download_name=f'ESE_CoverSheet_{code}_{datetime.date.today()}.pdf', mimetype='application/pdf')
+    return send_file(buf, as_attachment=True, download_name=f'ESE_CoverSheet_{course.course_code}_{datetime.date.today()}.pdf', mimetype='application/pdf')
 
 @api.route('/ese/despatch-pdf', methods=['GET'])
 @login_required
 def ese_despatch_pdf():
-    code = request.args.get('course_code', '').strip().upper()
-    course = Course.query.filter(Course.course_code.ilike(code)).first()
-    if not course: return jsonify({'message': 'Course not found'}), 404
+    course_id = request.args.get('course_id')
+    if course_id:
+        course = Course.query.get_or_404(course_id)
+    else:
+        code = request.args.get('course_code', '').strip().upper()
+        # Smart search: find course with this code that has registrations
+        potential_courses = Course.query.filter(Course.course_code.ilike(code)).all()
+        course = None
+        for pc in potential_courses:
+            if CourseRegistration.query.filter_by(course_id=pc.id).first():
+                course = pc
+                break
+        if not course and potential_courses: course = potential_courses[0]
+        if not course: return jsonify({'message': 'Course not found'}), 404
 
     schedule = ExamSchedule.query.filter_by(course_id=course.id).first()
     ay = AcademicYear.query.filter_by(is_current=True).first()
@@ -501,20 +512,16 @@ def ese_despatch_pdf():
     att_records = Attendance.query.filter_by(exam_schedule_id=schedule.id).all() if schedule else []
     existing = {att.student_id: att.status for att in att_records}
     
-    all_students = Student.query.filter_by(semester=course.semester).order_by(Student.department, Student.register_number).all()
+        # ── Strict CourseRegistration Query with Curriculum Safety ──
+    regs = CourseRegistration.query.filter_by(course_id=course.id).all()
+    reg_ids = [r.student_id for r in regs]
     
-    present_list = [s for s in all_students if existing.get(s.id, 'Present') == 'Present']
-    absent_list  = [s for s in all_students if existing.get(s.id) == 'Absent']
-    mp_list      = [s for s in all_students if existing.get(s.id) == 'Malpractice']
-    
-    total = len(all_students)
-    present_count = len(present_list)
-    absent_count = len(absent_list)
-    malpractice_count = len(mp_list)
-    
-    dept_str = ', '.join(sorted(set(s.department for s in all_students)))
-    exam_date_disp = schedule.exam_date.strftime('%d.%m.%Y %a').upper() if schedule else ''
-    exam_period = "APRIL/MAY - 2026" if (ay and ay.semester.lower() == 'even') else "NOV/DEC - 2025"
+    all_students = Student.query.filter(
+        Student.id.in_(reg_ids),
+        Student.department == course.curriculum.department.code,
+        Student.batch == course.curriculum.batch.label,
+        Student.regulation == course.curriculum.regulation.name
+    ).order_by(Student.register_number).all()\n    
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(
@@ -523,59 +530,59 @@ def ese_despatch_pdf():
         topMargin=10*mm, bottomMargin=10*mm
     )
     
-    NAVY = colors.HexColor('#1a2a5e')
-    RED  = colors.HexColor('#dc2626')
-    
+    NAVY, RED, LIGHT = colors.HexColor('#1a2a5e'), colors.HexColor('#dc2626'), colors.HexColor('#f3f4f6')
     styles = getSampleStyleSheet()
     def sty(name, **kw): return ParagraphStyle(name, **kw)
     
     title_sty = sty('T1', fontName='Helvetica-Bold', fontSize=10, textColor=colors.black, alignment=TA_CENTER, leading=12)
     meta_lbl  = sty('ML', fontName='Helvetica-Bold', fontSize=8.5, textColor=colors.black)
-    meta_val  = sty('MV', fontName='Helvetica-Bold', fontSize=8.5, textColor=RED) # Red for highlight
+    meta_val  = sty('MV', fontName='Helvetica-Bold', fontSize=8.5, textColor=RED)
     meta_val_b = sty('MVB', fontName='Helvetica-Bold', fontSize=8.5, textColor=colors.black)
     table_hdr = sty('TH', fontName='Helvetica-Bold', fontSize=8, textColor=colors.black, alignment=TA_CENTER)
     cell_sty  = sty('CL', fontName='Helvetica', fontSize=7.5, textColor=colors.black)
     cell_sty_c = sty('CLC', fontName='Helvetica', fontSize=7.5, textColor=colors.black, alignment=TA_CENTER)
+    sig_sty   = sty('SIG', fontName='Helvetica', fontSize=8.5, alignment=TA_CENTER)
 
     page_w = A4[0] - 20*mm
     story = []
 
-    PAGE_SIZE = 30
-    total_pages = max(1, math.ceil(present_count / PAGE_SIZE))
+    PAGE_SIZE = 28 # Reduced for safety with signatures
+    total_pages = max(1, math.ceil(total / PAGE_SIZE))
 
-    # Combine Absent and MP for the right column
+    # Combine Absent and MP for the summary
     ab_mp_combined = []
     for s in absent_list:
-        ab_mp_combined.append({'reg': s.register_number, 'name': f"{s.name} (AB)"})
+        ab_mp_combined.append({'reg': s.register_number, 'name': s.name, 'type': 'AB'})
     for s in mp_list:
-        ab_mp_combined.append({'reg': s.register_number, 'name': f"{s.name} (MP)"})
+        ab_mp_combined.append({'reg': s.register_number, 'name': s.name, 'type': 'MP'})
 
     for page_idx in range(total_pages):
-        # ── Institutional Header
+        # 1. Institutional Header
         get_institutional_header(story, page_w)
         
+        # 2. Titles
         story.append(Paragraph(f'<b>END SEMESTER EXAMINATIONS - {exam_period}</b>', title_sty))
-        story.append(Paragraph('<b>DESPATCH</b>', sty('DESP', fontName='Helvetica-Bold', fontSize=12, alignment=TA_CENTER, spaceAfter=2)))
+        story.append(Paragraph('<b>DESPATCH REPORT</b>', sty(f'DESP_{page_idx}', fontName='Helvetica-Bold', fontSize=12, alignment=TA_CENTER, spaceAfter=2)))
         story.append(HRFlowable(width='100%', thickness=0.5, color=colors.black))
         story.append(Spacer(1, 2*mm))
 
-        # ── Metadata Grid (Match image layout)
+        # 3. Metadata Grid
         meta_data = [
             [
                 Paragraph('<b>Department</b>', meta_lbl), Paragraph(':', meta_lbl), Paragraph(dept_str, meta_val_b),
-                Paragraph('<b>Course Code</b>', meta_lbl), Paragraph(':', meta_lbl), Paragraph(course.course_code, meta_val)
+                Paragraph('<b>Course Code</b>', meta_lbl), Paragraph(':', meta_lbl), Paragraph(course.course_code or 'N/A', meta_val)
             ],
             [
-                Paragraph('<b>Exam Date & Session</b>', meta_lbl), Paragraph(':', meta_lbl), Paragraph(f"{exam_date_disp} – {schedule.session if schedule else ''}", meta_val_b),
-                Paragraph('<b>Course Title</b>', meta_lbl), Paragraph(':', meta_lbl), Paragraph(course.course_title, meta_val_b)
+                Paragraph('<b>Exam Date & Session</b>', meta_lbl), Paragraph(':', meta_lbl), Paragraph(f"{exam_date_disp} – {session_disp}", meta_val_b),
+                Paragraph('<b>Course Title</b>', meta_lbl), Paragraph(':', meta_lbl), Paragraph(course.course_title or 'N/A', meta_val_b)
             ],
             [
-                Paragraph('<b>Total No. of Students</b>', meta_lbl), Paragraph(':', meta_lbl), Paragraph(str(total), meta_val_b),
-                Paragraph('<b>No. of Malpractice</b>', meta_lbl), Paragraph(':', meta_lbl), Paragraph(str(malpractice_count), meta_val_b)
+                Paragraph('<b>Total Strength</b>', meta_lbl), Paragraph(':', meta_lbl), Paragraph(str(total), meta_val_b),
+                Paragraph('<b>No. of Present</b>', meta_lbl), Paragraph(':', meta_lbl), Paragraph(str(present_count), meta_val_b)
             ],
             [
                 Paragraph('<b>No. of Absent</b>', meta_lbl), Paragraph(':', meta_lbl), Paragraph(str(absent_count), meta_val_b),
-                Paragraph('<b>No. of Present</b>', meta_lbl), Paragraph(':', meta_lbl), Paragraph(str(present_count), meta_val_b)
+                Paragraph('<b>No. of Malpractice</b>', meta_lbl), Paragraph(':', meta_lbl), Paragraph(str(malpractice_count), meta_val_b)
             ]
         ]
         meta_tbl = Table(meta_data, colWidths=[page_w*0.18, page_w*0.02, page_w*0.35, page_w*0.18, page_w*0.02, page_w*0.25])
@@ -586,114 +593,65 @@ def ese_despatch_pdf():
             ('TOPPADDING', (0,0), (-1,-1), 2),
         ]))
         story.append(meta_tbl)
-        story.append(Spacer(1, 2*mm))
+        story.append(Spacer(1, 4*mm))
 
-    # ── Main Table (Single column of Present candidates for clarity)
-    main_hdr = [
-        [
-            Paragraph('<b>SNo</b>', table_hdr),
-            Paragraph('<b>Register No.</b>', table_hdr),
-            Paragraph('<b>Name of the Student</b>', table_hdr),
-            Paragraph('<b>Answer Script No. / Remarks</b>', table_hdr),
-        ]
-    ]
-    
-    col_widths = [page_w*0.08, page_w*0.22, page_w*0.35, page_w*0.35]
-    
-    # ── Main Table (Now includes ALL students as requested, marking AB/MP)
-    total_pages = max(1, math.ceil(total / PAGE_SIZE))
-    
-    for page_idx in range(total_pages):
-        # ... (Institutional Header and Metadata Grid omitted for brevity but remain in real implementation) ...
-        # (Actually I need to keep the full logic inside the loop)
-        
-        # [REPEATED HEADER LOGIC]
-        get_institutional_header(story, page_w)
-        story.append(Paragraph(f'<b>END SEMESTER EXAMINATIONS - {exam_period}</b>', title_sty))
-        story.append(Paragraph('<b>DESPATCH REPORT</b>', sty('DESP', fontName='Helvetica-Bold', fontSize=12, alignment=TA_CENTER, spaceAfter=2)))
-        story.append(HRFlowable(width='100%', thickness=0.5, color=colors.black))
-        story.append(Spacer(1, 2*mm))
-
-        meta_data = [
-            [Paragraph('<b>Department</b>', meta_lbl), Paragraph(':', meta_lbl), Paragraph(dept_str, meta_val_b), Paragraph('<b>Course Code</b>', meta_lbl), Paragraph(':', meta_lbl), Paragraph(course.course_code, meta_val)],
-            [Paragraph('<b>Exam Date & Session</b>', meta_lbl), Paragraph(':', meta_lbl), Paragraph(f"{exam_date_disp} – {schedule.session if schedule else ''}", meta_val_b), Paragraph('<b>Course Title</b>', meta_lbl), Paragraph(':', meta_lbl), Paragraph(course.course_title, meta_val_b)],
-            [Paragraph('<b>Total Strength</b>', meta_lbl), Paragraph(':', meta_lbl), Paragraph(str(total), meta_val_b), Paragraph('<b>No. of Present</b>', meta_lbl), Paragraph(':', meta_lbl), Paragraph(str(present_count), meta_val_b)],
-            [Paragraph('<b>No. of Absent</b>', meta_lbl), Paragraph(':', meta_lbl), Paragraph(str(absent_count), meta_val_b), Paragraph('<b>No. of Malpractice</b>', meta_lbl), Paragraph(':', meta_lbl), Paragraph(str(malpractice_count), meta_val_b)]
-        ]
-        meta_tbl = Table(meta_data, colWidths=[page_w*0.18, page_w*0.02, page_w*0.35, page_w*0.18, page_w*0.02, page_w*0.25])
-        meta_tbl.setStyle(TableStyle([('GRID', (0,0), (-1,-1), 0.5, colors.grey),('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('BOTTOMPADDING', (0,0), (-1,-1), 3), ('TOPPADDING', (0,0), (-1,-1), 2)]))
-        story.append(meta_tbl)
-        story.append(Spacer(1, 3*mm))
-
+        # 4. Main Table
+        main_hdr = [[Paragraph('<b>SNo</b>', table_hdr), Paragraph('<b>Register No.</b>', table_hdr), Paragraph('<b>Name of the Student</b>', table_hdr), Paragraph('<b>Answer Script No. / Remarks</b>', table_hdr)]]
         rows = []
         page_students = all_students[page_idx*PAGE_SIZE : (page_idx+1)*PAGE_SIZE]
         
         for i, s in enumerate(page_students):
             idx = page_idx * PAGE_SIZE + i + 1
             status = existing.get(s.id, 'Present')
-            
             remarks = ''
             if status == 'Absent': 
-                remarks = Paragraph('<b>ABSENT (AB)</b>', sty('RAB', fontName='Helvetica-Bold', fontSize=8, textColor=RED, alignment=TA_CENTER))
+                remarks = Paragraph('<b>ABSENT (AB)</b>', sty(f'RAB_{idx}', fontName='Helvetica-Bold', fontSize=8, textColor=RED, alignment=TA_CENTER))
             elif status == 'Malpractice': 
-                remarks = Paragraph('<b>MALPRACTICE (MP)</b>', sty('RMP', fontName='Helvetica-Bold', fontSize=8, textColor=RED, alignment=TA_CENTER))
+                remarks = Paragraph('<b>MALPRACTICE (MP)</b>', sty(f'RMP_{idx}', fontName='Helvetica-Bold', fontSize=8, textColor=RED, alignment=TA_CENTER))
             
-            rows.append([
-                Paragraph(str(idx), cell_sty_c),
-                Paragraph(s.register_number, cell_sty_c),
-                Paragraph(s.name, cell_sty),
-                remarks,
-            ])        
-        # No longer filling remaining rows to reach PAGE_SIZE; list will be dynamic
+            rows.append([Paragraph(str(idx), cell_sty_c), Paragraph(s.register_number or '', cell_sty_c), Paragraph(s.name or '', cell_sty), remarks])        
 
-        main_tbl_data = main_hdr + rows
-        main_tbl = Table(main_tbl_data, colWidths=col_widths, repeatRows=1)
+        main_tbl = Table(main_hdr + rows, colWidths=[page_w*0.08, page_w*0.22, page_w*0.35, page_w*0.35], repeatRows=1)
         main_tbl.setStyle(TableStyle([
             ('GRID', (0,0), (-1,-1), 0.5, colors.black),
             ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
             ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 2),
-            ('TOPPADDING', (0,0), (-1,-1), 2),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 2.5),
+            ('TOPPADDING', (0,0), (-1,-1), 2.5),
         ]))
         story.append(main_tbl)
+        story.append(Spacer(1, 10*mm))
         
-        story.append(Spacer(1, 8*mm))
+        # 5. Signatures
         sig_data = [[
-            Paragraph('<b>__________________________</b><br/>Signature of the Hall Invigilator', sty('SIG', fontName='Helvetica', fontSize=8.5, alignment=TA_CENTER)),
-            Paragraph(f'Page {page_idx+1} of {total_pages}', sty('PG', fontName='Helvetica', fontSize=8, alignment=TA_CENTER)),
-            Paragraph('<b>__________________________</b><br/>Signature of the Chief Superintendent', sty('SIG2', fontName='Helvetica', fontSize=8.5, alignment=TA_CENTER))
+            Paragraph('<b>__________________________</b><br/>Signature of the Hall Invigilator', sig_sty),
+            Paragraph(f'Page {page_idx+1} of {total_pages}', sty(f'PG_{page_idx}', fontName='Helvetica', fontSize=8, alignment=TA_CENTER)),
+            Paragraph('<b>__________________________</b><br/>Signature of the Chief Superintendent', sig_sty)
         ]]
-        sig_tbl = Table(sig_data, colWidths=[page_w/3]*3)
-        story.append(sig_tbl)
+        story.append(Table(sig_data, colWidths=[page_w/3]*3))
 
         if page_idx < total_pages - 1:
             story.append(PageBreak())
 
-    # ── Final Page: Absent / Malpractice Summary (As requested)
+    # 6. Summary Page
     if ab_mp_combined:
-        story.append(Spacer(1, 10*mm))
+        story.append(PageBreak())
+        get_institutional_header(story, page_w)
         story.append(Paragraph('<b>LIST OF ABSENT / MALPRACTICE CANDIDATES</b>', sty('ABH', fontName='Helvetica-Bold', fontSize=10, alignment=TA_CENTER, spaceAfter=2)))
         ab_hdr = [[Paragraph('<b>Register No.</b>', table_hdr), Paragraph('<b>Name of the Student</b>', table_hdr), Paragraph('<b>Status</b>', table_hdr)]]
         ab_rows = []
         for item in ab_mp_combined:
-            ab_rows.append([
-                Paragraph(item['reg'], cell_sty_c),
-                Paragraph(item['name'].replace(' (AB)','').replace(' (MP)',''), cell_sty),
-                Paragraph('ABSENT' if '(AB)' in item['name'] else 'MALPRACTICE', cell_sty_c)
-            ])
+            ab_rows.append([Paragraph(item['reg'] or '', cell_sty_c), Paragraph(item['name'] or '', cell_sty), Paragraph('ABSENT' if item['type']=='AB' else 'MALPRACTICE', cell_sty_c)])
+        
         ab_tbl = Table(ab_hdr + ab_rows, colWidths=[page_w*0.3, page_w*0.4, page_w*0.3])
-        ab_tbl.setStyle(TableStyle([
-            ('GRID', (0,0), (-1,-1), 0.5, colors.black),
-            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('BACKGROUND', (0,0), (-1,0), LIGHT if 'LIGHT' in locals() else colors.lightgrey)
-        ]))
+        ab_tbl.setStyle(TableStyle([('GRID', (0,0), (-1,-1), 0.5, colors.black), ('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('BACKGROUND', (0,0), (-1,0), LIGHT)]))
         story.append(ab_tbl)
 
     doc.build(story)
     buf.seek(0)
-    filename = f'ESE_Despatch_{code}_{datetime.date.today()}.pdf'
+    filename = f'ESE_Despatch_{course.course_code}_{datetime.date.today()}.pdf'
     return send_file(buf, as_attachment=True, download_name=filename, mimetype='application/pdf')
-
+\n\n
 @api.route('/ese/dummy-upload', methods=['POST'])
 @login_required
 def ese_dummy_upload():
@@ -734,8 +692,20 @@ def ese_dummy_template():
 @api.route('/ese/sticker-pdf', methods=['GET'])
 @login_required
 def ese_sticker_pdf():
-    code = request.args.get('course_code', '').strip().upper()
-    course = Course.query.filter(Course.course_code.ilike(code)).first()
+        course_id = request.args.get('course_id')
+    if course_id:
+        course = Course.query.get_or_404(course_id)
+    else:
+        code = request.args.get('course_code', '').strip().upper()
+        # Smart search: find course with this code that has registrations
+        potential_courses = Course.query.filter(Course.course_code.ilike(code)).all()
+        course = None
+        for pc in potential_courses:
+            if CourseRegistration.query.filter_by(course_id=pc.id).first():
+                course = pc
+                break
+        if not course and potential_courses: course = potential_courses[0]
+        if not course: return jsonify({'message': 'Course not found'}), 404\n    
     schedule = ExamSchedule.query.filter_by(course_id=course.id).first() if course else None
     if not schedule: return jsonify({'message': 'No schedule found'}), 404
 
@@ -748,9 +718,16 @@ def ese_sticker_pdf():
         present_ids = None # means no attendance marked yet, print for all
 
     stickers = {ds.student_id: ds for ds in DummySticker.query.filter_by(exam_schedule_id=schedule.id).all()}
-    eligible = [s for s in Student.query.filter_by(semester=course.semester).all() if (present_ids is None or s.id in present_ids) and s.id in stickers]
+        # ── Strict CourseRegistration Query with Curriculum Safety ──
+    regs = CourseRegistration.query.filter_by(course_id=course.id).all()
+    reg_ids = [r.student_id for r in regs]
     
-    if not eligible: return jsonify({'message': 'No eligible students found (check if dummy numbers are uploaded and attendance status)'}), 404
+    base_students = Student.query.filter(
+        Student.id.in_(reg_ids),
+        Student.department == course.curriculum.department.code,
+        Student.batch == course.curriculum.batch.label,
+        Student.regulation == course.curriculum.regulation.name
+    ).order_by(Student.register_number).all()\n     return jsonify({'message': 'No eligible students found (check if dummy numbers are uploaded and attendance status)'}), 404
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(
@@ -794,7 +771,7 @@ def ese_sticker_pdf():
 
     doc.build(story)
     buf.seek(0)
-    return send_file(buf, as_attachment=True, download_name=f'Dummy_Stickers_{code}.pdf', mimetype='application/pdf')
+    return send_file(buf, as_attachment=True, download_name=f'Dummy_Stickers_{course.course_code}.pdf', mimetype='application/pdf')
 
 @api.route('/results/my', methods=['GET'])
 @login_required
@@ -1201,3 +1178,29 @@ def missing_attendance_report_pdf():
     
     doc.build(story); buf.seek(0)
     return send_file(buf, as_attachment=True, download_name=f'Missing_Attendance_{report_date}.pdf', mimetype='application/pdf')
+
+# -- Publication Visibility Controls ----------------------------------
+@api.route('/ese/publication-status', methods=['GET'])
+@login_required
+def get_publication_status():
+    ay = AcademicYear.query.filter_by(is_current=True).first()
+    return jsonify({
+        'hall_ticket_published': ay.hall_ticket_published if ay else False,
+        'results_published': ay.results_published if ay else False
+    })
+
+@api.route('/ese/update-publication', methods=['POST'])
+@login_required
+def update_publication_status():
+    if current_user.role != 'admin': return jsonify({'message': 'Admin only'}), 403
+    d = request.get_json()
+    target = d.get('target') # 'hall_ticket' or 'results'
+    value = d.get('value', False)
+    ay = AcademicYear.query.filter_by(is_current=True).first()
+    if not ay: return jsonify({'message': 'Current Academic Year not set'}), 404
+    if target == 'hall_ticket': ay.hall_ticket_published = value
+    elif target == 'results': ay.results_published = value
+    else: return jsonify({'message': 'Invalid target'}), 400
+    db.session.commit()
+    audit_log.log('UPDATE_PUBLICATION', {'target': target, 'value': value})
+    return jsonify({'message': f'{target.title()} visibility updated', 'status': value})

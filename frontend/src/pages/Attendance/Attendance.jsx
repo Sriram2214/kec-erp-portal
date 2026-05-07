@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { useMaster } from '../../context/MasterContext'
 import api from '../../api/index'
 import './Attendance.css'
 
@@ -43,7 +44,8 @@ export default function Attendance() {
   const [selectedInstanceId, setSelectedInstanceId] = useState('')
   const [matchingInstances, setMatchingInstances] = useState([])
   const [students,     setStudents]     = useState([])
-  const [courses,      setCourses]      = useState([])
+  const { master, refreshMaster } = useMaster()
+  const courses = master.courses || []
   const [searchTerm,   setSearchTerm]   = useState('')
   const [examDate,     setExamDate]     = useState('')
   const [session,      setSession]      = useState('FN')
@@ -75,7 +77,6 @@ export default function Attendance() {
       setCourseCode(code)
       handleLoad(code)
     }
-    fetchCourses()
   }, [])
 
   // Reset page when search changes
@@ -83,17 +84,10 @@ export default function Attendance() {
     setCurrentPage(1)
   }, [searchTerm])
 
-  async function fetchCourses() {
-    try {
-      console.log('Fetching courses...')
-      const res = await api.get('/courses')
-      console.log('Courses fetched:', res.data.length)
-      const sorted = (res.data || []).sort((a, b) => a.course_code.localeCompare(b.course_code))
-      setCourses(sorted)
-    } catch (e) { 
-      console.error('Failed to fetch courses', e)
-      alert('Failed to load courses. Please check your internet or server connection.')
-    }
+  async function handleRefreshCourses() {
+    setLoading(true);
+    await refreshMaster(true);
+    setLoading(false);
   }
 
   /* ── Fetch course + students ───────────────────────── */
@@ -175,7 +169,8 @@ export default function Attendance() {
     if (!courseInfo) return
     setPdfLoading(true)
     try {
-      const url = `/ese/attendance-pdf?course_code=${courseInfo.course_code}`
+      const idParam = courseInfo.course_id ? `course_id=${courseInfo.course_id}` : `course_code=${courseInfo.course_code}`
+      const url = `/ese/attendance-pdf?${idParam}`
       await downloadBlob(url, `Attendance_${courseInfo.course_code}_ALL.pdf`)
     } catch { setError('PDF generation failed.') }
     finally { setPdfLoading(false) }
@@ -184,7 +179,10 @@ export default function Attendance() {
   async function handleCoverSheet() {
     if (!courseInfo) return
     setCoverLoading(true)
-    try { await downloadBlob(`/ese/cover-sheet-pdf?course_code=${courseInfo.course_code}`, `ESE_CoverSheet_${courseInfo.course_code}.pdf`) }
+    try { 
+      const idParam = courseInfo.course_id ? `course_id=${courseInfo.course_id}` : `course_code=${courseInfo.course_code}`
+      await downloadBlob(`/ese/cover-sheet-pdf?${idParam}`, `ESE_CoverSheet_${courseInfo.course_code}.pdf`) 
+    }
     catch { setError('Cover Sheet PDF generation failed.') }
     finally { setCoverLoading(false) }
   }
@@ -192,7 +190,10 @@ export default function Attendance() {
   async function handleDespatch() {
     if (!courseInfo) return
     setDespLoading(true)
-    try { await downloadBlob(`/ese/despatch-pdf?course_code=${courseInfo.course_code}`, `ESE_Despatch_${courseInfo.course_code}.pdf`) }
+    try { 
+      const idParam = courseInfo.course_id ? `course_id=${courseInfo.course_id}` : `course_code=${courseInfo.course_code}`
+      await downloadBlob(`/ese/despatch-pdf?${idParam}`, `ESE_Despatch_${courseInfo.course_code}.pdf`) 
+    }
     catch { setError('Despatch PDF generation failed.') }
     finally { setDespLoading(false) }
   }
@@ -251,11 +252,11 @@ export default function Attendance() {
           <span>Load by Course Code</span>
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
             {courses.length > 0 ? (
-              <span className="badge badge-green" style={{ fontSize: '0.65rem' }}>{courses.length} Courses Loaded</span>
+              <span className="badge badge-green" style={{ fontSize: '0.65rem' }}>{courses.length} Global Courses Cached</span>
             ) : (
-              <span className="badge badge-red" style={{ fontSize: '0.65rem' }}>Loading Courses...</span>
+              <span className="badge badge-red" style={{ fontSize: '0.65rem' }}>Synchronizing...</span>
             )}
-            <button className="btn btn-outline btn-sm" onClick={fetchCourses} title="Refresh Course List">
+            <button className="btn btn-outline btn-sm" onClick={handleRefreshCourses} title="Force Refresh Course Cache">
               ↻
             </button>
           </div>
@@ -298,9 +299,9 @@ export default function Attendance() {
               <button 
                 className="btn btn-outline" 
                 style={{ width: '100%', height: '45px', borderStyle: 'dashed' }}
-                onClick={fetchCourses}
+                onClick={handleRefreshCourses}
               >
-                Loading Courses... Click to Retry
+                Synchronizing Courses...
               </button>
             )}
           </div>

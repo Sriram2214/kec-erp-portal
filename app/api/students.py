@@ -20,19 +20,26 @@ def get_students():
     per_page = request.args.get('per_page', 100, type=int)
     fields   = request.args.get('fields', 'full')
 
-    q = Student.query.order_by(Student.department, Student.register_number)
-    if dept:   q = q.filter_by(department=dept)
-    if batch:  q = q.filter_by(batch=batch)
-    if year:   q = q.filter_by(academic_year=int(year))
-    if search: q = q.filter(db.or_(Student.name.ilike(f'%{search}%'), Student.register_number.ilike(f'%{search}%')))
+    # Optimization: Use joinedload to prevent N+1 queries for each student's relationships
+    # This makes the initial load significantly faster by doing one join instead of 100+ separate lookups.
+    from sqlalchemy.orm import joinedload
+    q = Student.query.options(joinedload(Student.attendances)).order_by(Student.department, Student.register_number)
+
+    if dept:   q = q.filter(Student.department == dept)
+    if batch:  q = q.filter(Student.batch == batch)
+    if year:   q = q.filter(Student.academic_year == int(year))
+    if search: 
+        search_term = f'%{search}%'
+        q = q.filter(db.or_(Student.name.ilike(search_term), Student.register_number.ilike(search_term)))
 
     if page:
         pag = q.paginate(page=page, per_page=per_page, error_out=False)
         students = pag.items
         total    = pag.total
     else:
-        students = q.all()
-        total    = len(students)
+        # Limit the result set even if pagination is not specified to avoid crashing the browser with too much data
+        students = q.limit(500).all()
+        total    = q.count()
 
     # Lean response for the list view (faster — 40% smaller payload)
     if fields == 'list':

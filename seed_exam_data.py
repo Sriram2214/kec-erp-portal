@@ -36,10 +36,31 @@ def seed_exam_data():
             ('RA3601', 'Autonomous Systems', 'RAA', 6),
             ('RA3401', 'Robot Kinematics', 'RAA', 4),
         ]
-        for code, title, dept, sem in courses_to_ensure:
+        from app.models import Curriculum, Department, Batch, Regulation
+        
+        for code, title, dept_code, sem in courses_to_ensure:
             exists = Course.query.filter_by(course_code=code).first()
             if not exists:
-                db.session.add(Course(course_code=code, course_title=title, department=dept, semester=sem, credits=3))
+                d = Department.query.filter_by(code=dept_code).first()
+                if not d: continue
+                b = Batch.query.first() # Assume first batch
+                r = Regulation.query.first()
+                curr = Curriculum.query.filter_by(department_id=d.id, batch_id=b.id, regulation_id=r.id).first()
+                if not curr:
+                    curr = Curriculum()
+                    curr.department_id = d.id
+                    curr.batch_id = b.id
+                    curr.regulation_id = r.id
+                    curr.degree_id = d.degree_id
+                    db.session.add(curr); db.session.flush()
+                
+                c = Course()
+                c.course_code = code
+                c.course_title = title
+                c.curriculum_id = curr.id
+                c.semester = sem
+                c.credits = 3
+                db.session.add(c)
         db.session.commit()
 
         courses = Course.query.all()
@@ -47,8 +68,7 @@ def seed_exam_data():
             print('No courses found!')
             return
 
-        # ── 1. Cascading Cleanup (Correct Order) ──
-        print('Cleaning existing records (Attendance, Dummies, Schedules, Registrations)...')
+        # ── 1. Cascading Cleanup ──
         from app.models import Attendance, DummySticker
         Attendance.query.delete()
         DummySticker.query.delete()
@@ -60,42 +80,33 @@ def seed_exam_data():
         total_sch = 0
 
         for course in courses:
-            print(f'Processing {course.course_code} - {course.course_title} (Dept: {course.department}, Sem: {course.semester})')
+            dept_obj = course.curriculum.department
+            print(f'Processing {course.course_code} (Dept: {dept_obj.code}, Sem: {course.semester})')
             
-            # Find students matching the course criteria
             students = Student.query.filter_by(
-                department=course.department,
+                department=dept_obj.code,
                 semester=course.semester
             ).all()
 
-            if not students:
-                print(f'  ! No students found for {course.department} Sem {course.semester}. Skipping registration.')
-            else:
-                # Register all matching students for this course
-                registrations = []
+            if students:
                 for s in students:
-                    registrations.append(CourseRegistration(
-                        student_id=s.id,
-                        course_id=course.id,
-                        academic_year_id=ay.id
-                    ))
-                db.session.bulk_save_objects(registrations)
-                total_reg += len(registrations)
-                print(f'  [OK] Registered {len(registrations)} students.')
+                    cr = CourseRegistration()
+                    cr.student_id = s.id
+                    cr.course_id = course.id
+                    cr.academic_year_id = ay.id
+                    db.session.add(cr)
+                total_reg += len(students)
 
-            # Create an exam schedule for this course
-            # Random date in the next 15 days
             exam_date = datetime.date.today() + datetime.timedelta(days=random.randint(1, 15))
             session = random.choice(['FN', 'AN'])
             
-            schedule = ExamSchedule(
-                course_id=course.id,
-                academic_year_id=ay.id,
-                exam_date=exam_date,
-                session=session,
-                venue='MAIN BLOCK'
-            )
-            db.session.add(schedule)
+            sch = ExamSchedule()
+            sch.course_id = course.id
+            sch.academic_year_id = ay.id
+            sch.exam_date = exam_date
+            sch.session = session
+            sch.venue = 'MAIN BLOCK'
+            db.session.add(sch)
             total_sch += 1
 
         db.session.commit()

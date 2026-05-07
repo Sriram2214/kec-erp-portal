@@ -16,18 +16,29 @@ export default function Dashboard() {
 
   useEffect(() => {
     setLoading(true)
-    api.get('/coe/analytics') // Reuse analytics for dashboard stats
+    const statsUrl = ['admin', 'coe'].includes(user?.role) ? '/coe/analytics' : '/dashboard/stats'
+    
+    api.get(statsUrl)
       .then(r => {
-        setStats({
-          students: r.data.total_appeared || 1842,
-          faculty: r.data.faculty_strength || 156,
-          courses: r.data.active_courses || 84,
-          attendance: r.data.overall_pass_percent || 92
-        })
+        if (statsUrl === '/coe/analytics') {
+          setStats({
+            students: r.data.total_appeared || 1842,
+            faculty: r.data.faculty_strength || 156,
+            courses: r.data.active_courses || 84,
+            attendance: r.data.overall_pass_percent || 92
+          })
+        } else {
+          setStats({
+            students: r.data.students || 0,
+            faculty: r.data.faculty || 0,
+            courses: r.data.courses || 0,
+            attendance: 100 // placeholder
+          })
+        }
       })
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [])
+  }, [user?.role])
 
   // Removed blocking full-page loading to make transitions feel instant
   // if (loading) return ... 

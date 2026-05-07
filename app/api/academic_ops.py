@@ -61,8 +61,16 @@ def manage_timetable():
     batch   = request.args.get('batch')
     section = request.args.get('section', 'A')
     
-    if batch: query = query.filter(CourseAllocation.course.has(Course.curriculum.has(Curriculum.batch.has(Batch.label == batch))))
-    if section: query = query.filter(CourseAllocation.section == section)
+    query = ClassTimetable.query.join(CourseAllocation)
+    
+    if batch: 
+        query = query.filter(CourseAllocation.course.has(
+            Course.curriculum.has(
+                Curriculum.batch.has(Batch.label == batch)
+            )
+        ))
+    if section: 
+        query = query.filter(CourseAllocation.section == section)
     
     entries = query.all()
     return jsonify([{

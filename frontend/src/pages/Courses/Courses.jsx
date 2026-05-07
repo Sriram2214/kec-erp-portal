@@ -4,16 +4,14 @@ import '../Students/Students.css'
 
 const EMPTY = { course_code: '', course_title: '', department: '', credits: 3, batch: '', semester: 1 }
 
+import { useMaster } from '../../context/MasterContext'
+
 export default function Courses() {
   const [courses, setCourses] = useState([])
-  const [master,  setMaster]  = useState({ degrees: [], departments: [], batches: [], regulations: [] })
+  const { master }            = useMaster()
   const [loading, setLoading] = useState(false)
   const [filters, setFilters] = useState({ degree_id: '', department_id: '', batch_id: '', regulation_id: '' })
   const [search,  setSearch]  = useState('')
-
-  const loadMaster = () => {
-    api.get('/master').then(r => setMaster(r.data))
-  }
 
   const loadCourses = () => {
     if (!filters.degree_id || !filters.department_id || !filters.batch_id || !filters.regulation_id) {
@@ -26,7 +24,6 @@ export default function Courses() {
        .finally(() => setLoading(false))
   }
 
-  useEffect(() => { loadMaster() }, [])
   useEffect(() => { loadCourses() }, [filters])
 
   const filtered = courses.filter(c => 

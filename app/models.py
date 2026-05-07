@@ -17,6 +17,9 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(256))
     role          = db.Column(db.String(20), nullable=False, default='staff')  # admin / staff / coe
 
+    def __init__(self, **kwargs):
+        super(User, self).__init__(**kwargs)
+
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
     def check_password(self, password):
@@ -30,15 +33,24 @@ class Degree(db.Model):
     name = db.Column(db.String(20), unique=True, nullable=False)  # BE, B.Tech, ME, PhD
     departments = db.relationship('Department', backref='degree', lazy=True)
 
+    def __init__(self, **kwargs):
+        super(Degree, self).__init__(**kwargs)
+
 class Department(db.Model):
     id        = db.Column(db.Integer, primary_key=True)
     code      = db.Column(db.String(10), unique=True, nullable=False)   # CSE, ECE …
     name      = db.Column(db.String(100), nullable=False)
     degree_id = db.Column(db.Integer, db.ForeignKey('degree.id'), nullable=False)
 
+    def __init__(self, **kwargs):
+        super(Department, self).__init__(**kwargs)
+
 class Regulation(db.Model):
     id   = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(20), unique=True, nullable=False)  # R2021, R2019 …
+
+    def __init__(self, **kwargs):
+        super(Regulation, self).__init__(**kwargs)
 
 class AcademicYear(db.Model):
     id         = db.Column(db.Integer, primary_key=True)
@@ -52,9 +64,15 @@ class AcademicYear(db.Model):
 
     def __repr__(self): return f'<AY {self.label} {self.semester}>'
 
+    def __init__(self, **kwargs):
+        super(AcademicYear, self).__init__(**kwargs)
+
 class Batch(db.Model):
     id    = db.Column(db.Integer, primary_key=True)
     label = db.Column(db.String(20), unique=True, nullable=False)  # 2021-2025
+
+    def __init__(self, **kwargs):
+        super(Batch, self).__init__(**kwargs)
 
 # ─────────────────────────────────────────────
 # Students & Faculty
@@ -68,11 +86,14 @@ class Student(db.Model):
     academic_year   = db.Column(db.Integer, index=True, nullable=False)      # 1 / 2 / 3 / 4
     degree          = db.Column(db.String(20), default='BE')
     regulation      = db.Column(db.String(20), default='R2021')
-    semester        = db.Column(db.Integer, default=1)
+    semester        = db.Column(db.Integer, index=True, default=1)
     email           = db.Column(db.String(120))
     phone           = db.Column(db.String(15))
     dob             = db.Column(db.String(12))
     result_published = db.Column(db.Boolean, default=False)
+
+    def __init__(self, **kwargs):
+        super(Student, self).__init__(**kwargs)
 
 class Faculty(db.Model):
     id          = db.Column(db.Integer, primary_key=True)
@@ -103,16 +124,22 @@ class Curriculum(db.Model):
 
     __table_args__ = (db.UniqueConstraint('degree_id', 'department_id', 'batch_id', 'regulation_id', name='_curriculum_mapping_uc'),)
 
+    def __init__(self, **kwargs):
+        super(Curriculum, self).__init__(**kwargs)
+
 class Course(db.Model):
     id            = db.Column(db.Integer, primary_key=True)
     curriculum_id = db.Column(db.Integer, db.ForeignKey('curriculum.id'), nullable=False)
-    course_code   = db.Column(db.String(20), nullable=False)
+    course_code   = db.Column(db.String(20), index=True, nullable=False)
     course_title  = db.Column(db.String(150), nullable=False)
     semester      = db.Column(db.Integer, nullable=False)
     credits       = db.Column(db.Integer, default=3)
     is_lab        = db.Column(db.Boolean, default=False)
 
     __table_args__ = (db.UniqueConstraint('curriculum_id', 'course_code', name='_curriculum_course_uc'),)
+
+    def __init__(self, **kwargs):
+        super(Course, self).__init__(**kwargs)
 
 class CourseAllocation(db.Model):
     """Faculty ↔ Course mapping per section"""
@@ -126,12 +153,18 @@ class CourseAllocation(db.Model):
     course        = db.relationship('Course',  backref=db.backref('allocations', lazy=True))
     academic_year = db.relationship('AcademicYear')
 
+    def __init__(self, **kwargs):
+        super(CourseAllocation, self).__init__(**kwargs)
+
 class GradeScale(db.Model):
     id         = db.Column(db.Integer, primary_key=True)
     grade      = db.Column(db.String(5), nullable=False) # O, A+, A, B+...
     min_mark   = db.Column(db.Integer, nullable=False)
     max_mark   = db.Column(db.Integer, nullable=False)
     points     = db.Column(db.Integer, nullable=False)
+    
+    def __init__(self, **kwargs):
+        super(GradeScale, self).__init__(**kwargs)
 
 class ClassTimetable(db.Model):
     id            = db.Column(db.Integer, primary_key=True)
@@ -140,6 +173,9 @@ class ClassTimetable(db.Model):
     period        = db.Column(db.Integer, nullable=False)      # 1, 2, 3, 4, 5, 6, 7, 8
     
     allocation    = db.relationship('CourseAllocation', backref=db.backref('periods', lazy=True))
+
+    def __init__(self, **kwargs):
+        super(ClassTimetable, self).__init__(**kwargs)
 
 # ─────────────────────────────────────────────
 # Attendance
@@ -156,6 +192,9 @@ class ClassAttendance(db.Model):
 
     student      = db.relationship('Student', backref=db.backref('class_attendance', lazy=True))
     course       = db.relationship('Course',  backref=db.backref('class_attendance', lazy=True))
+
+    def __init__(self, **kwargs):
+        super(ClassAttendance, self).__init__(**kwargs)
 
 # ─────────────────────────────────────────────
 # Internal Marks
@@ -174,13 +213,16 @@ class InternalMarks(db.Model):
     student = db.relationship('Student', backref=db.backref('internal_marks', lazy=True))
     course  = db.relationship('Course',  backref=db.backref('internal_marks', lazy=True))
 
+    def __init__(self, **kwargs):
+        super(InternalMarks, self).__init__(**kwargs)
+
 # ─────────────────────────────────────────────
 # End Semester Exam
 # ─────────────────────────────────────────────
 class ExamSchedule(db.Model):
     id               = db.Column(db.Integer, primary_key=True)
     course_id        = db.Column(db.Integer, db.ForeignKey('course.id'), nullable=False)
-    exam_date        = db.Column(db.Date, nullable=False)
+    exam_date        = db.Column(db.Date, index=True, nullable=False)
     session          = db.Column(db.String(5), nullable=False)   # FN / AN
     academic_year_id = db.Column(db.Integer, db.ForeignKey('academic_year.id'))
     venue            = db.Column(db.String(50))
@@ -199,6 +241,9 @@ class CourseRegistration(db.Model):
 
     student      = db.relationship('Student', backref=db.backref('registrations', lazy=True))
     course       = db.relationship('Course',  backref=db.backref('registrations', lazy=True))
+
+    def __init__(self, **kwargs):
+        super(CourseRegistration, self).__init__(**kwargs)
 
 class FeeClearance(db.Model):
     """Exam fee + due clearance + hall ticket approval"""
@@ -231,9 +276,9 @@ class Attendance(db.Model):
     """ESE Exam attendance"""
     __table_args__ = (UniqueConstraint('student_id', 'exam_schedule_id', name='_student_exam_uc'),)
     id               = db.Column(db.Integer, primary_key=True)
-    student_id       = db.Column(db.Integer, db.ForeignKey('student.id'), nullable=False)
+    student_id       = db.Column(db.Integer, db.ForeignKey('student.id'), index=True, nullable=False)
     exam_schedule_id = db.Column(db.Integer, db.ForeignKey('exam_schedule.id'), nullable=False)
-    status           = db.Column(db.String(20), default='Present')  # Present / Absent / Malpractice
+    status           = db.Column(db.String(20), index=True, default='Present')  # Present / Absent / Malpractice
 
     student      = db.relationship('Student',      backref=db.backref('attendances', lazy=True))
     exam_schedule = db.relationship('ExamSchedule', backref=db.backref('attendances', lazy=True))
@@ -243,7 +288,7 @@ class DummySticker(db.Model):
     id               = db.Column(db.Integer, primary_key=True)
     student_id       = db.Column(db.Integer, db.ForeignKey('student.id'), nullable=False)
     exam_schedule_id = db.Column(db.Integer, db.ForeignKey('exam_schedule.id'), nullable=False)
-    dummy_number     = db.Column(db.String(50), nullable=False)
+    dummy_number     = db.Column(db.String(50), index=True, nullable=False)
     foil_number      = db.Column(db.String(50), nullable=False)
 
     student       = db.relationship('Student',      backref=db.backref('dummy_stickers', lazy=True))

@@ -61,6 +61,8 @@ function PrivateRoute({ children, allowedRoles }) {
   return <Layout><Suspense fallback={<PageLoader />}>{children}</Suspense></Layout>
 }
 
+import { MasterProvider } from './context/MasterContext'
+
 export default function App() {
   const [showSplash, setShowSplash] = useState(true)
 
@@ -79,7 +81,8 @@ export default function App() {
     <BrowserRouter>
       <ErrorBoundary>
         <AuthProvider>
-          <Routes>
+          <MasterProvider>
+            <Routes>
             <Route path="/"      element={<Navigate to="/login" replace />} />
             <Route path="/login"          element={<Suspense fallback={<PageLoader />}><Login /></Suspense>} />
             <Route path="/coe-login"      element={<Suspense fallback={<PageLoader />}><COELogin /></Suspense>} />
@@ -114,6 +117,7 @@ export default function App() {
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </MasterProvider>
         </AuthProvider>
       </ErrorBoundary>
     </BrowserRouter>

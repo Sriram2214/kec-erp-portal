@@ -13,8 +13,9 @@ migrate = Migrate()
 csrf = CSRFProtect()
 limiter = Limiter(key_func=get_remote_address, default_limits=["2000 per day", "500 per hour"])
 from flask_compress import Compress
-# cors = CORS() # REMOVED DUE TO INSTALL ISSUE
+from flask_cors import CORS
 compress = Compress()
+cors = CORS()
 login_manager.login_view = "auth.login"
 login_manager.login_message_category = "info"
 
@@ -36,17 +37,8 @@ def create_app(config_class=Config):
     csrf.init_app(app)
     limiter.init_app(app)
     compress.init_app(app)
+    cors.init_app(app, supports_credentials=True)
 
-    @app.after_request
-    def add_cors_headers(response):
-        from flask import request
-        origin = request.headers.get('Origin')
-        if origin:
-            response.headers["Access-Control-Allow-Origin"] = origin
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
-        response.headers["Access-Control-Allow-Credentials"] = "true"
-        return response
 
     # Exclude API from CSRF if using Bearer tokens, but since we use sessions,
     # we might need to handle it or exempt temporarily for dev.

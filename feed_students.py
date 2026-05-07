@@ -40,19 +40,17 @@ def feed_data():
                     email = f'{name.lower().replace(" ", ".")}@{batch[:4]}.kec.ac.in'
                     phone = f'9{random.randint(100000000, 999999999)}'
                     
-                    s = Student(
-                        register_number=reg_no,
-                        name=name,
-                        department=dept,
-                        batch=batch,
-                        academic_year=year,
-                        semester=sem,
-                        degree='B.E',
-                        regulation='R2021',
-                        email=email,
-                        phone=phone,
-                        result_published=False
-                    )
+                    s = Student()
+                    s.register_number = reg_no
+                    s.name            = name
+                    s.department      = dept
+                    s.batch           = batch
+                    s.academic_year   = year
+                    s.semester        = sem
+                    s.degree          = 'B.E'
+                    s.regulation      = 'R2021'
+                    s.email           = email
+                    s.phone           = phone
                     students.append(s)
         
         db.session.bulk_save_objects(students)

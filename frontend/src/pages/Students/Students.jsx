@@ -11,9 +11,11 @@ const EMPTY = {
   email:'', phone:'', dob:''
 }
 
+import { useMaster } from '../../context/MasterContext'
+
 export default function Students() {
   const [students,   setStudents]   = useState([])
-  const [master,     setMaster]     = useState({ departments:[], batches:[], regulations:[], degrees:[] })
+  const { master }                  = useMaster()
   const [loading,    setLoading]    = useState(true)
   const [page,       setPage]       = useState(1)
   const [total,      setTotal]      = useState(0)
@@ -68,43 +70,6 @@ export default function Students() {
   useEffect(() => {
     load()
   }, [page])
-  useEffect(() => {
-    api.get('/master')
-      .then(r => {
-        if (r.data && r.data.departments && r.data.departments.length > 0) {
-          setMaster(r.data)
-        } else {
-          throw new Error('Empty master data')
-        }
-      })
-      .catch(() => {
-        // Fallback master data if backend fails
-        setMaster({
-          departments: [
-            { id: 1, code: 'AI&DS', name: 'Artificial Intelligence and Data Science' },
-            { id: 2, code: 'AIML', name: 'Artificial Intelligence and Machine Learning' },
-            { id: 3, code: 'BME', name: 'Biomedical Engineering' },
-            { id: 4, code: 'CSE', name: 'Computer Science and Engineering' },
-            { id: 5, code: 'ECE', name: 'Electronics and Communication Engineering' },
-            { id: 6, code: 'IT', name: 'Information Technology' },
-            { id: 7, code: 'MECH', name: 'Mechanical Engineering' },
-            { id: 8, code: 'CIVIL', name: 'Civil Engineering' },
-            { id: 9, code: 'RAA', name: 'Robotics and Automation' }
-          ],
-          degrees: [
-            { id: 1, name: 'B.E' }, { id: 2, name: 'B.TECH' },
-            { id: 3, name: 'M.E' }, { id: 4, name: 'PhD.' }
-          ],
-          batches: [
-            { id: 1, label: '2021-2025' }, { id: 2, label: '2022-2026' },
-            { id: 3, label: '2023-2027' }, { id: 4, label: '2024-2028' }
-          ],
-          regulations: [
-            { id: 1, name: 'R2021' }, { id: 2, name: 'R2019' }
-          ]
-        })
-      })
-  }, [])
 
   const toggleResult = async (sid) => {
     try {

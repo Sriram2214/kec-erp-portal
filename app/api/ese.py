@@ -69,14 +69,18 @@ def get_courses_by_date():
 @api.route('/exam-attendance/<path:course_code>', methods=['GET'])
 @login_required
 def ese_students(course_code=None):
-    code = (course_code or request.args.get('course_code', '')).strip().upper()
-    if not code:
-        return jsonify({'message': 'course_code required'}), 400
+    course_id = request.args.get('course_id')
+    if course_id:
+        course = Course.query.get_or_404(course_id)
+    else:
+        code = (course_code or request.args.get('course_code', '')).strip().upper()
+        if not code:
+            return jsonify({'message': 'course_code or course_id required'}), 400
 
-    from sqlalchemy.orm import joinedload
-    course = Course.query.options(joinedload(Course.curriculum).joinedload(Curriculum.department)).filter(Course.course_code.ilike(code)).first()
-    if not course:
-        return jsonify({'message': f'Course "{code}" not found'}), 404
+        from sqlalchemy.orm import joinedload
+        course = Course.query.options(joinedload(Course.curriculum).joinedload(Curriculum.department)).filter(Course.course_code.ilike(code)).first()
+        if not course:
+            return jsonify({'message': f'Course "{code}" not found'}), 404
 
     schedule = ExamSchedule.query.filter_by(course_id=course.id).first()
 

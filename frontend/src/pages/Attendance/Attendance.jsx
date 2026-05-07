@@ -40,6 +40,8 @@ function Toast({ toasts }) {
 export default function Attendance() {
   const [courseCode,   setCourseCode]   = useState('')
   const [courseInfo,   setCourseInfo]   = useState(null)
+  const [selectedInstanceId, setSelectedInstanceId] = useState('')
+  const [matchingInstances, setMatchingInstances] = useState([])
   const [students,     setStudents]     = useState([])
   const [courses,      setCourses]      = useState([])
   const [searchTerm,   setSearchTerm]   = useState('')
@@ -95,12 +97,14 @@ export default function Attendance() {
   }
 
   /* ── Fetch course + students ───────────────────────── */
-  async function handleLoad(explicitCode) {
+  async function handleLoad(explicitCode, explicitId) {
     const code = (typeof explicitCode === 'string' ? explicitCode : courseCode).trim().toUpperCase()
-    if (!code) return
+    const id = explicitId || selectedInstanceId
+    if (!code && !id) return
     setError(''); setLoading(true); setCourseInfo(null); setStudents([]); setCurrentPage(1); setSearchTerm('')
     try {
-      const res = await api.get(`/ese/students?course_code=${code}`)
+      const url = id ? `/ese/students?course_id=${id}` : `/ese/students?course_code=${code}`
+      const res = await api.get(url)
       const data = res.data
       setCourseInfo(data)
       
@@ -263,21 +267,33 @@ export default function Attendance() {
               <select
                 key={courses.length}
                 className="ese-code-input"
-                onClick={() => courses.length === 0 && fetchCourses()}
                 value={courseCode}
                 onChange={e => {
                   const val = e.target.value
                   setCourseCode(val)
                   setError('')
-                  if (val) handleLoad(val)
+                  setSelectedInstanceId('')
+                  
+                  // Find all instances with this code
+                  const matches = courses.filter(c => c.course_code === val)
+                  setMatchingInstances(matches)
+                  
+                  if (matches.length === 1) {
+                    setSelectedInstanceId(matches[0].id)
+                    handleLoad(val, matches[0].id)
+                  }
                 }}
               >
                 <option value="">-- Choose Course Code --</option>
-                {courses.map(c => (
-                  <option key={c.id} value={c.course_code}>
-                    {c.course_code} - {c.course_title}
-                  </option>
-                ))}
+                {/* Show unique codes in the first dropdown */}
+                {Array.from(new Set(courses.map(c => c.course_code))).sort().map(code => {
+                  const firstMatch = courses.find(c => c.course_code === code)
+                  return (
+                    <option key={code} value={code}>
+                      {code} - {firstMatch.course_title}
+                    </option>
+                  )
+                })}
               </select>
             ) : (
               <button 
@@ -289,10 +305,33 @@ export default function Attendance() {
               </button>
             )}
           </div>
+
+          {matchingInstances.length > 1 && (
+            <div className="ese-input-wrap fade-in">
+              <label>SELECT DEPARTMENT / REGULATION</label>
+              <select
+                className="ese-code-input"
+                style={{ borderColor: 'var(--gold)' }}
+                value={selectedInstanceId}
+                onChange={e => {
+                  setSelectedInstanceId(e.target.value)
+                  handleLoad(courseCode, e.target.value)
+                }}
+              >
+                <option value="">-- Select Specific Curriculum --</option>
+                {matchingInstances.map(c => (
+                  <option key={c.id} value={c.id}>
+                    {c.department} | {c.regulation} | Batch: {c.batch}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <button
             className="btn btn-gold ese-load-btn"
-            onClick={handleLoad}
-            disabled={loading || !courseCode.trim()}
+            onClick={() => handleLoad()}
+            disabled={loading || !courseCode.trim() || (matchingInstances.length > 1 && !selectedInstanceId)}
           >
             {loading ? (
               <span className="ese-spinner" />

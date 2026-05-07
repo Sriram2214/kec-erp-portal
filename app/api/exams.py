@@ -36,7 +36,10 @@ def manage_courses():
     return jsonify([{
         'id': c.id, 'course_code': c.course_code,
         'course_title': c.course_title,
-        'department': c.curriculum.department.code, 'credits': c.credits,
+        'department': c.curriculum.department.code,
+        'regulation': c.curriculum.regulation.name,
+        'batch': c.curriculum.batch.label,
+        'credits': c.credits,
     } for c in courses])
 
 @api.route('/courses/<int:cid>', methods=['DELETE'])

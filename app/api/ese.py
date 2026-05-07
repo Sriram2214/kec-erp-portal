@@ -83,17 +83,24 @@ def ese_students(course_code=None):
             return jsonify({'message': f'Course "{code}" not found'}), 404
 
     schedule = ExamSchedule.query.filter_by(course_id=course.id).first()
+    # ── Load existing attendance and stickers ──
+    existing = {}
+    stickers = {}
+    if schedule:
+        for att in Attendance.query.filter_by(exam_schedule_id=schedule.id).all():
+            existing[att.student_id] = att.status
+        for ds in DummySticker.query.filter_by(exam_schedule_id=schedule.id).all():
+            stickers[ds.student_id] = ds.dummy_number
 
-        # ── Strict CourseRegistration Query with Curriculum Safety ──
+    # ── Strict CourseRegistration Query with Curriculum Safety ──
     regs = CourseRegistration.query.filter_by(course_id=course.id).all()
     reg_ids = [r.student_id for r in regs]
-    
     students = Student.query.filter(
         Student.id.in_(reg_ids),
         Student.department == course.curriculum.department.code,
         Student.batch == course.curriculum.batch.label,
         Student.regulation == course.curriculum.regulation.name
-    ).order_by(Student.register_number).all()\n    print(f"[ESE Students] Course: {course.course_code} (ID: {course.id}) | Regs: {len(reg_ids)} | Filtered: {len(students)}")\n    source = 'course_registration'\n    
+    ).order_by(Student.register_number).all()
     source = 'course_registration'
 
     # ── High-Performance Dummy Sticker Generation (Only if missing) ──
@@ -232,34 +239,28 @@ def ese_attendance_pdf():
         course = Course.query.get_or_404(course_id)
     else:
         code = request.args.get('course_code', '').strip().upper()
-        # Smart search: find course with this code that has registrations
         potential_courses = Course.query.filter(Course.course_code.ilike(code)).all()
-        course = None
-        for pc in potential_courses:
-            if CourseRegistration.query.filter_by(course_id=pc.id).first():
-                course = pc
-                break
+        course = next((pc for pc in potential_courses if CourseRegistration.query.filter_by(course_id=pc.id).first()), None)
         if not course and potential_courses: course = potential_courses[0]
         if not course: return jsonify({'message': 'Course not found'}), 404
 
     schedule = ExamSchedule.query.filter_by(course_id=course.id).first()
     ay = AcademicYear.query.filter_by(is_current=True).first()
-
     existing = {}
     if schedule:
         for att in Attendance.query.filter_by(exam_schedule_id=schedule.id).all():
             existing[att.student_id] = att.status
 
-        # ── Strict CourseRegistration Query with Curriculum Safety ──
+    # ── Strict CourseRegistration Query with Curriculum Safety ──
     regs = CourseRegistration.query.filter_by(course_id=course.id).all()
     reg_ids = [r.student_id for r in regs]
-    
     students = Student.query.filter(
         Student.id.in_(reg_ids),
         Student.department == course.curriculum.department.code,
         Student.batch == course.curriculum.batch.label,
         Student.regulation == course.curriculum.regulation.name
-    ).order_by(Student.register_number).all()\n    print(f"[ATT PDF] Course: {course.course_code} (ID: {course.id}) | Regs: {len(reg_ids)} | PDF Students: {len(students)}")\n    
+    ).order_by(Student.register_number).all()
+    print(f"[ATT PDF] Course: {course.course_code} (ID: {course.id}) | Regs: {len(reg_ids)} | PDF Students: {len(students)}")
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(
@@ -400,34 +401,37 @@ def ese_cover_sheet_pdf():
         course = Course.query.get_or_404(course_id)
     else:
         code = request.args.get('course_code', '').strip().upper()
-        # Smart search: find course with this code that has registrations
         potential_courses = Course.query.filter(Course.course_code.ilike(code)).all()
-        course = None
-        for pc in potential_courses:
-            if CourseRegistration.query.filter_by(course_id=pc.id).first():
-                course = pc
-                break
+        course = next((pc for pc in potential_courses if CourseRegistration.query.filter_by(course_id=pc.id).first()), None)
         if not course and potential_courses: course = potential_courses[0]
         if not course: return jsonify({'message': 'Course not found'}), 404
 
     schedule = ExamSchedule.query.filter_by(course_id=course.id).first()
     ay = AcademicYear.query.filter_by(is_current=True).first()
-
     existing = {}
     if schedule:
         for att in Attendance.query.filter_by(exam_schedule_id=schedule.id).all():
             existing[att.student_id] = att.status
 
-        # ── Strict CourseRegistration Query with Curriculum Safety ──
+    # ── Strict CourseRegistration Query with Curriculum Safety ──
     regs = CourseRegistration.query.filter_by(course_id=course.id).all()
     reg_ids = [r.student_id for r in regs]
-    
     all_students = Student.query.filter(
         Student.id.in_(reg_ids),
         Student.department == course.curriculum.department.code,
         Student.batch == course.curriculum.batch.label,
         Student.regulation == course.curriculum.regulation.name
-    ).order_by(Student.register_number).all()\n    
+    ).order_by(Student.register_number).all()
+
+    present_students = [s for s in all_students if existing.get(s.id, 'Present') == 'Present']
+    total_present = len(present_students)
+    BUNDLE_SIZE = 30
+    num_bundles = max(1, math.ceil(total_present / BUNDLE_SIZE))
+    sticker_map = {}
+    if schedule:
+        for ds in DummySticker.query.filter_by(exam_schedule_id=schedule.id).all():
+            sticker_map[ds.student_id] = ds.dummy_number
+    present_dummies = [sticker_map.get(s.id, '') for s in present_students]
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=15*mm, rightMargin=15*mm, topMargin=12*mm, bottomMargin=15*mm)
@@ -491,37 +495,39 @@ def ese_cover_sheet_pdf():
 @login_required
 def ese_despatch_pdf():
     course_id = request.args.get('course_id')
-    if course_id:
-        course = Course.query.get_or_404(course_id)
+    if course_id: course = Course.query.get_or_404(course_id)
     else:
         code = request.args.get('course_code', '').strip().upper()
-        # Smart search: find course with this code that has registrations
         potential_courses = Course.query.filter(Course.course_code.ilike(code)).all()
-        course = None
-        for pc in potential_courses:
-            if CourseRegistration.query.filter_by(course_id=pc.id).first():
-                course = pc
-                break
+        course = next((pc for pc in potential_courses if CourseRegistration.query.filter_by(course_id=pc.id).first()), None)
         if not course and potential_courses: course = potential_courses[0]
         if not course: return jsonify({'message': 'Course not found'}), 404
 
     schedule = ExamSchedule.query.filter_by(course_id=course.id).first()
     ay = AcademicYear.query.filter_by(is_current=True).first()
-    
-    # Fetch attendance and students
     att_records = Attendance.query.filter_by(exam_schedule_id=schedule.id).all() if schedule else []
     existing = {att.student_id: att.status for att in att_records}
-    
-        # ── Strict CourseRegistration Query with Curriculum Safety ──
+
+    # ── Strict CourseRegistration Query with Curriculum Safety ──
     regs = CourseRegistration.query.filter_by(course_id=course.id).all()
     reg_ids = [r.student_id for r in regs]
-    
     all_students = Student.query.filter(
         Student.id.in_(reg_ids),
         Student.department == course.curriculum.department.code,
         Student.batch == course.curriculum.batch.label,
         Student.regulation == course.curriculum.regulation.name
-    ).order_by(Student.register_number).all()\n    
+    ).order_by(Student.register_number).all()
+
+    present_list = [s for s in all_students if existing.get(s.id, 'Present') == 'Present']
+    absent_list  = [s for s in all_students if existing.get(s.id) == 'Absent']
+    mp_list      = [s for s in all_students if existing.get(s.id) == 'Malpractice']
+    total, present_count, absent_count, malpractice_count = len(all_students), len(present_list), len(absent_list), len(mp_list)
+
+    dept_codes = sorted(set(s.department for s in all_students if s.department))
+    dept_str = ', '.join(dept_codes) if dept_codes else (course.curriculum.department.code if course.curriculum and course.curriculum.department else 'N/A')
+    exam_date_disp = schedule.exam_date.strftime('%d.%m.%Y %a').upper() if schedule and schedule.exam_date else 'NOT SCHEDULED'
+    session_disp   = (schedule.session or 'FN') if schedule else 'N/A'
+    exam_period = "APRIL/MAY - 2026" if (ay and ay.semester and ay.semester.lower() == "even") else "NOV/DEC - 2025"
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(
@@ -692,42 +698,33 @@ def ese_dummy_template():
 @api.route('/ese/sticker-pdf', methods=['GET'])
 @login_required
 def ese_sticker_pdf():
-        course_id = request.args.get('course_id')
-    if course_id:
-        course = Course.query.get_or_404(course_id)
+    course_id = request.args.get('course_id')
+    if course_id: course = Course.query.get_or_404(course_id)
     else:
         code = request.args.get('course_code', '').strip().upper()
-        # Smart search: find course with this code that has registrations
         potential_courses = Course.query.filter(Course.course_code.ilike(code)).all()
-        course = None
-        for pc in potential_courses:
-            if CourseRegistration.query.filter_by(course_id=pc.id).first():
-                course = pc
-                break
+        course = next((pc for pc in potential_courses if CourseRegistration.query.filter_by(course_id=pc.id).first()), None)
         if not course and potential_courses: course = potential_courses[0]
-        if not course: return jsonify({'message': 'Course not found'}), 404\n    
     schedule = ExamSchedule.query.filter_by(course_id=course.id).first() if course else None
     if not schedule: return jsonify({'message': 'No schedule found'}), 404
 
-    # The list should not include absent, and malpractice
-    # If attendance is not marked, assume all are present for sticker generation
-    att_records = Attendance.query.filter_by(exam_schedule_id=schedule.id).all()
-    if att_records:
-        present_ids = {a.student_id for a in att_records if a.status == 'Present'}
-    else:
-        present_ids = None # means no attendance marked yet, print for all
-
+    only_present = request.args.get('only_present') == 'true'
+    present_ids = None
+    if only_present:
+        present_ids = [att.student_id for att in Attendance.query.filter_by(exam_schedule_id=schedule.id, status='Present').all()]
     stickers = {ds.student_id: ds for ds in DummySticker.query.filter_by(exam_schedule_id=schedule.id).all()}
-        # ── Strict CourseRegistration Query with Curriculum Safety ──
+
+    # ── Strict CourseRegistration Query with Curriculum Safety ──
     regs = CourseRegistration.query.filter_by(course_id=course.id).all()
     reg_ids = [r.student_id for r in regs]
-    
     base_students = Student.query.filter(
         Student.id.in_(reg_ids),
         Student.department == course.curriculum.department.code,
         Student.batch == course.curriculum.batch.label,
         Student.regulation == course.curriculum.regulation.name
-    ).order_by(Student.register_number).all()\n     return jsonify({'message': 'No eligible students found (check if dummy numbers are uploaded and attendance status)'}), 404
+    ).all()
+    eligible = [s for s in base_students if (present_ids is None or s.id in present_ids) and s.id in stickers]
+    if not eligible: return jsonify({'message': 'No eligible students found'}), 404
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(

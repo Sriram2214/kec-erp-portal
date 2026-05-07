@@ -30,11 +30,14 @@ def manage_courses():
         audit_log.log("ADD_COURSE", {"code": code})
         return jsonify({'message': 'Course added', 'id': c.id}), 201
 
+    from sqlalchemy.orm import joinedload
+    courses = Course.query.options(joinedload(Course.curriculum).joinedload(Curriculum.department)).all()
+    
     return jsonify([{
         'id': c.id, 'course_code': c.course_code,
         'course_title': c.course_title,
         'department': c.curriculum.department.code, 'credits': c.credits,
-    } for c in Course.query.all()])
+    } for c in courses])
 
 @api.route('/courses/<int:cid>', methods=['DELETE'])
 @login_required

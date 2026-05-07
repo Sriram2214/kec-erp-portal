@@ -47,7 +47,8 @@ def get_courses_by_date():
     except:
         return jsonify({'message': 'Invalid date format (YYYY-MM-DD)'}), 400
     
-    schedules = ExamSchedule.query.filter_by(exam_date=target_date).all()
+    from sqlalchemy.orm import joinedload
+    schedules = ExamSchedule.query.options(joinedload(ExamSchedule.course).joinedload(Course.curriculum).joinedload(Curriculum.department)).filter_by(exam_date=target_date).all()
     results = []
     for s in schedules:
         sticker_count = DummySticker.query.filter_by(exam_schedule_id=s.id).count()
@@ -72,7 +73,8 @@ def ese_students(course_code=None):
     if not code:
         return jsonify({'message': 'course_code required'}), 400
 
-    course = Course.query.filter(Course.course_code.ilike(code)).first()
+    from sqlalchemy.orm import joinedload
+    course = Course.query.options(joinedload(Course.curriculum).joinedload(Curriculum.department)).filter(Course.course_code.ilike(code)).first()
     if not course:
         return jsonify({'message': f'Course "{code}" not found'}), 404
 

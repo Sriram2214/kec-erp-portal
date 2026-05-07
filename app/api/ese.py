@@ -657,7 +657,9 @@ def ese_despatch_pdf():
     buf.seek(0)
     filename = f'ESE_Despatch_{course.course_code}_{datetime.date.today()}.pdf'
     return send_file(buf, as_attachment=True, download_name=filename, mimetype='application/pdf')
-\n\n
+
+
+
 @api.route('/ese/dummy-upload', methods=['POST'])
 @login_required
 def ese_dummy_upload():

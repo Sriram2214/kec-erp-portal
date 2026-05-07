@@ -6,15 +6,17 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER
 
 # Resolve absolute path to institutional header
-# We check the root for local development first, then fallback to static for Vercel
 _UTILS_DIR = os.path.dirname(os.path.abspath(__file__))
 _APP_DIR   = os.path.abspath(os.path.join(_UTILS_DIR, '..'))
 _ROOT      = os.path.abspath(os.path.join(_APP_DIR, '..'))
 
-LOCAL_HEADER = os.path.join(_ROOT, 'Header2.jpg.jpeg')
+# Primary path (should be in static folder for Vercel/Production)
 STATIC_HEADER = os.path.join(_APP_DIR, 'static', 'header.png')
+# Local override if you have the file in the root
+LOCAL_HEADER  = os.path.join(_ROOT, 'Header2.jpg.jpeg')
 
-HEADER_IMG = LOCAL_HEADER if os.path.exists(LOCAL_HEADER) else STATIC_HEADER
+# Prefer the static one as it is tracked in Git
+HEADER_IMG = STATIC_HEADER if os.path.exists(STATIC_HEADER) else LOCAL_HEADER
 LOGO_PATH  = os.path.join(_APP_DIR, 'static', 'logo.png')
 
 NAVY = colors.HexColor('#1a2a5e')
@@ -22,8 +24,6 @@ NAVY = colors.HexColor('#1a2a5e')
 def get_institutional_header(story, page_w):
     """
     Insert the official KEC letterhead image as the PDF header.
-    FALLBACK REMOVED: If the image is missing, this will fail intentionally
-    to ensure the user knows their branding file is missing.
     """
     if os.path.exists(HEADER_IMG):
         try:
@@ -33,27 +33,23 @@ def get_institutional_header(story, page_w):
             aspect = iw / ih
             img_h = page_w / aspect
             story.append(RLImage(HEADER_IMG, width=page_w, height=img_h))
-            story.append(Paragraph('<font size=6 color=grey>v1.1 - Branded</font>', styles['Normal']))
-            story.append(Spacer(1, 1*mm))
+            story.append(Spacer(1, 2*mm))
             return True
         except Exception as e:
             import logging
             logging.error(f"HEADER LOAD ERROR: {e} at {HEADER_IMG}")
             pass
-    else:
-        import logging
-        logging.error(f"HEADER NOT FOUND at {HEADER_IMG}")
-    
-    # ERROR CASE: Image exists but failed to load or does not exist
-    import logging
-    err_msg = f"STILL OLD VERSION? [DEBUG] Institutional Branding Missing.\nPath: {HEADER_IMG}"
-    logging.error(err_msg)
-    
+
+    # Clean Fallback (No debug text, just the professional look)
     styles = getSampleStyleSheet()
-    err_para = Paragraph(
-        f'<font color="red"><b>{err_msg}</b></font>',
-        styles['Normal']
+    hdr_center = Paragraph(
+        '<b>KINGS ENGINEERING COLLEGE</b><br/>'
+        '<font size=8><b>AN AUTONOMOUS INSTITUTION</b></font><br/>'
+        '<font size=7>ACCREDITED WITH NAAC AND AFFILIATED TO ANNA UNIVERSITY</font><br/>'
+        '<font size=7>Chennai-Bangalore Highway, Irungattukottai, Sriperumbudur, Chennai – 602 117.</font><br/>'
+        '<font size=7>Ph.: 044 – 71224401 -08. Fax: 044 – 71224410</font>',
+        ParagraphStyle('HDR_C', fontName='Helvetica-Bold', fontSize=16, textColor=NAVY, alignment=TA_CENTER, leading=16)
     )
-    story.append(err_para)
-    story.append(Spacer(1, 10*mm))
+    story.append(hdr_center)
+    story.append(Spacer(1, 2*mm))
     return False

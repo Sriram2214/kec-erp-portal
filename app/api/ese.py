@@ -1,7 +1,7 @@
 from flask import jsonify, request, send_file
 from flask_login import login_required, current_user
 from app.api import api
-from app.models import (Student, Course, ExamSchedule, Attendance, CourseRegistration,
+from app.models import (Student, Course, ExamSchedule, Attendance, CourseRegistration, Curriculum,
                         AcademicYear, DummySticker, FoilMark, FeeClearance)
 from app import db, limiter
 from app.utils.logger import audit_log
@@ -57,7 +57,7 @@ def get_courses_by_date():
             'course_title': s.course.course_title,
             'session': s.session,
             'venue': s.venue,
-            'department': s.course.department,
+            'department': s.course.curriculum.department.code,
             'sticker_count': sticker_count
         })
     return jsonify(results)
@@ -102,30 +102,35 @@ def ese_students(course_code=None):
             semester=course.semester
         ).order_by(Student.department, Student.register_number).all()
 
-    # ── Auto-generate dummy stickers if schedule exists ───────────────
+    # ── High-Performance Dummy Sticker Generation ───────────────
     if schedule:
-        needs_commit = False
-        existing_sticker_ids = {
-            ds.student_id
-            for ds in DummySticker.query.filter_by(exam_schedule_id=schedule.id).all()
-        }
+        existing_stickers = DummySticker.query.filter_by(exam_schedule_id=schedule.id).all()
+        existing_student_ids = {ds.student_id for ds in existing_stickers}
+        
+        # Pre-fetch all dummy numbers for this schedule to avoid duplicates in-memory
+        used_dummy_nos = {ds.dummy_number for ds in existing_stickers}
+        
+        new_stickers = []
         for s in students:
-            if s.id not in existing_sticker_ids:
+            if s.id not in existing_student_ids:
                 dept_prefix = (s.department or 'GEN')[:3].upper()
-                for _ in range(20):  # max 20 retries
+                # Generate a unique dummy number without per-student DB hits
+                while True:
                     rand_part = ''.join(random.choices(string.digits, k=5))
                     dummy_no = f"24{dept_prefix}{rand_part}"
-                    if not DummySticker.query.filter_by(dummy_number=dummy_no).first():
+                    if dummy_no not in used_dummy_nos:
+                        used_dummy_nos.add(dummy_no)
                         break
-                ds = DummySticker(
+                
+                new_stickers.append(DummySticker(
                     student_id=s.id,
                     exam_schedule_id=schedule.id,
                     dummy_number=dummy_no,
                     foil_number=str(random.randint(1000, 9999))
-                )
-                db.session.add(ds)
-                needs_commit = True
-        if needs_commit:
+                ))
+        
+        if new_stickers:
+            db.session.bulk_save_objects(new_stickers)
             db.session.commit()
 
     # ── Fetch sticker map ─────────────────────────────────────────────
@@ -137,7 +142,7 @@ def ese_students(course_code=None):
     return jsonify({
         'course_code':  course.course_code,
         'course_title': course.course_title,
-        'department':   course.department,
+        'department':   course.curriculum.department.code,
         'semester':     course.semester,
         'exam_date':    schedule.exam_date.strftime('%d.%m.%Y') if schedule and schedule.exam_date else None,
         'session':      schedule.session if schedule else None,
@@ -298,7 +303,7 @@ def ese_attendance_pdf():
     story.append(HRFlowable(width='100%', thickness=0.5, color=colors.black))
     story.append(Spacer(1, 2*mm))
 
-    dept_name = dept_filter if dept_filter else course.department
+    dept_name = dept_filter if dept_filter else course.curriculum.department.code
     info_data = [
         [
             Paragraph('<b>Degree &amp; Branch</b> :', label_sty),
@@ -435,7 +440,7 @@ def ese_cover_sheet_pdf():
         story.append(Paragraph(f'END SEMESTER EXAMINATIONS – {(ay.semester if ay else "EVEN").upper()} SEM {ay.label if ay else "2025-26"}', ParagraphStyle('ET', fontName='Helvetica-Bold', fontSize=10, textColor=NAVY, alignment=TA_CENTER)))
         story.append(Spacer(1, 3*mm))
 
-        info1 = [[Paragraph('<b>BOARD</b>', lbl), Paragraph(':', lbl), Paragraph(course.department, val2), Paragraph('<b>Course Code :</b>', lbl), Paragraph(f'<b>{course.course_code}</b>', val)]]
+        info1 = [[Paragraph('<b>BOARD</b>', lbl), Paragraph(':', lbl), Paragraph(course.curriculum.department.code, val2), Paragraph('<b>Course Code :</b>', lbl), Paragraph(f'<b>{course.course_code}</b>', val)]]
         story.append(Table(info1, colWidths=[page_w*0.12, page_w*0.03, page_w*0.32, page_w*0.25, page_w*0.28], style=[('VALIGN',(0,0),(-1,-1),'MIDDLE'),('BOTTOMPADDING',(0,0),(-1,-1),4)]))
         exam_str = f'{schedule.exam_date.strftime("%d.%m.%Y %a").upper()} – {schedule.session}' if schedule else 'Not Scheduled'
         info2 = [[Paragraph('<b>Exam Date &amp; Session :</b>', lbl), Paragraph(exam_str, val2), Paragraph('<b>Course Title :</b>', lbl), Paragraph(course.course_title, val2)]]
@@ -443,17 +448,21 @@ def ese_cover_sheet_pdf():
         story.append(Spacer(1, 2*mm)); story.append(Paragraph('<b>Valuation Date &amp; Session :</b>', ParagraphStyle('VDL', fontName='Helvetica-Bold', fontSize=9, textColor=NAVY, alignment=TA_CENTER))); story.append(Spacer(1, 2*mm))
 
         dummy_data = [[Paragraph('<b>SNO</b>', ParagraphStyle('DH',fontName='Helvetica-Bold',fontSize=8,textColor=WHITE,alignment=TA_CENTER)), Paragraph('<b>DUMMY NO</b>', ParagraphStyle('DH2',fontName='Helvetica-Bold',fontSize=8,textColor=WHITE,alignment=TA_CENTER)), Paragraph('<b>SNO</b>', ParagraphStyle('DH3',fontName='Helvetica-Bold',fontSize=8,textColor=WHITE,alignment=TA_CENTER)), Paragraph('<b>DUMMY NO</b>', ParagraphStyle('DH4',fontName='Helvetica-Bold',fontSize=8,textColor=WHITE,alignment=TA_CENTER))]]
-        for row_i in range(15):
+        # Calculate how many rows are needed for THIS bundle
+        students_in_this_bundle = min(BUNDLE_SIZE, total_present - bundle_idx * BUNDLE_SIZE)
+        rows_needed = math.ceil(students_in_this_bundle / 2)
+        
+        for row_i in range(rows_needed):
             l_idx = bundle_idx * BUNDLE_SIZE + row_i
-            r_idx = bundle_idx * BUNDLE_SIZE + row_i + 15
+            r_idx = bundle_idx * BUNDLE_SIZE + row_i + rows_needed
             l_sno = l_idx + 1
             r_sno = r_idx + 1
             # Left column dummy
-            l_dummy = present_dummies[l_idx] if l_idx < len(present_dummies) else ''
-            l_sno_str = str(l_sno) if l_idx < total_present else ''
+            l_dummy = present_dummies[l_idx] if l_idx < (bundle_idx * BUNDLE_SIZE + students_in_this_bundle) else ''
+            l_sno_str = str(l_sno) if l_dummy else ''
             # Right column dummy
-            r_dummy = present_dummies[r_idx] if r_idx < len(present_dummies) else ''
-            r_sno_str = str(r_sno) if r_idx < total_present else ''
+            r_dummy = present_dummies[r_idx] if r_idx < (bundle_idx * BUNDLE_SIZE + students_in_this_bundle) else ''
+            r_sno_str = str(r_sno) if r_dummy else ''
             dummy_data.append([
                 Paragraph(l_sno_str, ParagraphStyle(f'LS{bundle_idx}_{row_i}', fontName='Helvetica', fontSize=8, alignment=TA_CENTER)),
                 Paragraph(f'<b>{l_dummy}</b>' if l_dummy else '', ParagraphStyle(f'LD{bundle_idx}_{row_i}', fontName='Helvetica-Bold', fontSize=8, textColor=NAVY, alignment=TA_CENTER)),
@@ -629,9 +638,7 @@ def ese_despatch_pdf():
                 Paragraph(s.name, cell_sty),
                 remarks,
             ])        
-        # Fill remaining rows to reach 30 if last page is short
-        for i in range(len(page_students), PAGE_SIZE):
-            rows.append(['', '', '', ''])
+        # No longer filling remaining rows to reach PAGE_SIZE; list will be dynamic
 
         main_tbl_data = main_hdr + rows
         main_tbl = Table(main_tbl_data, colWidths=col_widths, repeatRows=1)
@@ -821,7 +828,7 @@ def get_hallticket_pdf():
             'status': 'not_cleared'
         }), 403
         
-    schedules = ExamSchedule.query.join(Course).filter(Course.department == student.department, Course.semester == student.semester, ExamSchedule.academic_year_id == ay.id).all()
+    schedules = ExamSchedule.query.join(Course).join(Curriculum).join(Department).filter(Department.code == student.department, Course.semester == student.semester, ExamSchedule.academic_year_id == ay.id).all()
     if not schedules: return jsonify({'message': 'No exam schedules found'}), 404
     schedules.sort(key=lambda x: x.exam_date if x.exam_date else datetime.date.max)
 
@@ -1015,7 +1022,7 @@ def session_daywise_report_pdf():
                 Paragraph(str(i), ParagraphStyle(f'SN{session_label}{i}', fontName='Helvetica', fontSize=8, alignment=TA_CENTER)),
                 Paragraph(f'<b>{course.course_code}</b>', ParagraphStyle(f'CC{session_label}{i}', fontName='Helvetica-Bold', fontSize=8, textColor=NAVY, alignment=TA_CENTER)),
                 Paragraph(course.course_title, ParagraphStyle(f'CT{session_label}{i}', fontName='Helvetica', fontSize=7.5)),
-                Paragraph(course.department, ParagraphStyle(f'DP{session_label}{i}', fontName='Helvetica', fontSize=8, alignment=TA_CENTER)),
+                Paragraph(course.curriculum.department.code, ParagraphStyle(f'DP{session_label}{i}', fontName='Helvetica', fontSize=8, alignment=TA_CENTER)),
                 Paragraph(str(course.semester or '-'), ParagraphStyle(f'SM{session_label}{i}', fontName='Helvetica', fontSize=8, alignment=TA_CENTER)),
                 Paragraph(sched.venue or 'MAIN HALL', ParagraphStyle(f'VN{session_label}{i}', fontName='Helvetica', fontSize=7.5, alignment=TA_CENTER)),
                 Paragraph(f'<b>{strength}</b>', ParagraphStyle(f'ST{session_label}{i}', fontName='Helvetica-Bold', fontSize=8, alignment=TA_CENTER)),

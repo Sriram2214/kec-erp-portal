@@ -3,7 +3,7 @@ import datetime
 import os
 import logging
 from flask_login import login_user, logout_user, login_required, current_user
-from app.models import (User, Student, Faculty, Course, ExamSchedule,
+from app.models import (User, Student, Faculty, Course, ExamSchedule, Curriculum,
                         Degree, Department, Batch, Regulation, AcademicYear,
                         CourseAllocation, DummySticker, FoilMark)
 from app import db, limiter
@@ -410,11 +410,31 @@ def delete_staff(uid):
 @api.route('/courses', methods=['GET'])
 @login_required
 def get_courses():
+    degree_id = request.args.get('degree_id')
+    dept_id   = request.args.get('department_id')
+    batch_id  = request.args.get('batch_id')
+    reg_id    = request.args.get('regulation_id')
+    
+    q = Course.query.join(Curriculum)
+    
+    if degree_id: q = q.filter(Curriculum.degree_id == degree_id)
+    if dept_id:   q = q.filter(Curriculum.department_id == dept_id)
+    if batch_id:  q = q.filter(Curriculum.batch_id == batch_id)
+    if reg_id:    q = q.filter(Curriculum.regulation_id == reg_id)
+    
+    courses = q.order_by(Course.semester, Course.course_code).all()
+    
     return jsonify([{
-        'id': c.id, 'course_code': c.course_code,
+        'id': c.id, 
+        'course_code': c.course_code,
         'course_title': c.course_title,
-        'department': c.department, 'credits': c.credits,
-    } for c in Course.query.all()])
+        'semester': c.semester,
+        'credits': c.credits,
+        'is_lab': c.is_lab,
+        'regulation': c.curriculum.regulation.name,
+        'department': c.curriculum.department.code,
+        'batch': c.curriculum.batch.label
+    } for c in courses])
 
 # ── Exam Schedule ─────────────────────────────────────────────────────────────
 

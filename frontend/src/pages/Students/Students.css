@@ -249,3 +249,65 @@
 @media (max-width: 600px) {
   .filter-footer { flex-direction: column; gap: 0.8rem; text-align: center; }
 }
+
+/* Curriculum Specifics */
+.semester-group {
+    margin-bottom: 2.5rem;
+    padding: 0 !important;
+    overflow: hidden;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+}
+.semester-header {
+    background: var(--navy);
+    color: #fff;
+    padding: 0.8rem 1.5rem;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+.semester-group table {
+    margin: 0;
+    border-radius: 0;
+}
+.semester-group table thead {
+    background: #f8fafc;
+}
+.semester-group table th {
+    border-bottom: 2px solid #e2e8f0;
+    color: #475569;
+}
+
+.loading-state, .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 4rem 2rem;
+    text-align: center;
+    color: #64748b;
+    border: 2px dashed #e2e8f0;
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(201, 162, 39, 0.2);
+    border-top-color: var(--gold);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 1rem;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.filter-group.cascading select {
+    min-width: 160px;
+}
+.filter-group.cascading select:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: #f1f5f9;
+}

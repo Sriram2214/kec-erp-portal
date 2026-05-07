@@ -2,6 +2,7 @@ from datetime import datetime
 from app import db, login_manager
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
+from sqlalchemy import UniqueConstraint
 
 @login_manager.user_loader
 def load_user(id):
@@ -83,29 +84,46 @@ class Faculty(db.Model):
     phone       = db.Column(db.String(15))
 
 # ─────────────────────────────────────────────
-# Courses
+# Courses & Curriculum
 # ─────────────────────────────────────────────
+class Curriculum(db.Model):
+    """Master mapping for Batch + Dept + Regulation"""
+    id            = db.Column(db.Integer, primary_key=True)
+    degree_id     = db.Column(db.Integer, db.ForeignKey('degree.id'), nullable=False)
+    department_id = db.Column(db.Integer, db.ForeignKey('department.id'), nullable=False)
+    batch_id      = db.Column(db.Integer, db.ForeignKey('batch.id'), nullable=False)
+    regulation_id = db.Column(db.Integer, db.ForeignKey('regulation.id'), nullable=False)
+
+    degree     = db.relationship('Degree', backref='curriculums')
+    department = db.relationship('Department', backref='curriculums')
+    batch      = db.relationship('Batch', backref='curriculums')
+    regulation = db.relationship('Regulation', backref='curriculums')
+
+    courses    = db.relationship('Course', backref='curriculum', cascade='all, delete-orphan')
+
+    __table_args__ = (db.UniqueConstraint('degree_id', 'department_id', 'batch_id', 'regulation_id', name='_curriculum_mapping_uc'),)
+
 class Course(db.Model):
-    id           = db.Column(db.Integer, primary_key=True)
-    course_code  = db.Column(db.String(20), unique=True, nullable=False)
-    course_title = db.Column(db.String(150), nullable=False)
-    department   = db.Column(db.String(50), nullable=False)
-    credits      = db.Column(db.Integer)
-    semester     = db.Column(db.Integer)
-    regulation   = db.Column(db.String(20), default='R2021')
-    is_lab       = db.Column(db.Boolean, default=False)
+    id            = db.Column(db.Integer, primary_key=True)
+    curriculum_id = db.Column(db.Integer, db.ForeignKey('curriculum.id'), nullable=False)
+    course_code   = db.Column(db.String(20), nullable=False)
+    course_title  = db.Column(db.String(150), nullable=False)
+    semester      = db.Column(db.Integer, nullable=False)
+    credits       = db.Column(db.Integer, default=3)
+    is_lab        = db.Column(db.Boolean, default=False)
+
+    __table_args__ = (db.UniqueConstraint('curriculum_id', 'course_code', name='_curriculum_course_uc'),)
 
 class CourseAllocation(db.Model):
-    """Faculty ↔ Course mapping per batch & academic year"""
+    """Faculty ↔ Course mapping per section"""
     id               = db.Column(db.Integer, primary_key=True)
     faculty_id       = db.Column(db.Integer, db.ForeignKey('faculty.id'), nullable=False)
     course_id        = db.Column(db.Integer, db.ForeignKey('course.id'), nullable=False)
-    batch            = db.Column(db.String(20), nullable=False)
-    academic_year_id = db.Column(db.Integer, db.ForeignKey('academic_year.id'))
     section          = db.Column(db.String(5), default='A')
+    academic_year_id = db.Column(db.Integer, db.ForeignKey('academic_year.id'))
 
-    faculty      = db.relationship('Faculty', backref=db.backref('allocations', lazy=True))
-    course       = db.relationship('Course',  backref=db.backref('allocations', lazy=True))
+    faculty       = db.relationship('Faculty', backref=db.backref('allocations', lazy=True))
+    course        = db.relationship('Course',  backref=db.backref('allocations', lazy=True))
     academic_year = db.relationship('AcademicYear')
 
 class GradeScale(db.Model):
@@ -207,7 +225,7 @@ class HallTicket(db.Model):
 
     student = db.relationship('Student', backref=db.backref('hall_tickets', lazy=True))
 
-from sqlalchemy import UniqueConstraint
+
 
 class Attendance(db.Model):
     """ESE Exam attendance"""

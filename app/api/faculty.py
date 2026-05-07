@@ -59,8 +59,8 @@ def my_courses():
             'allocation_id': a.id,
             'course_code': a.course.course_code,
             'course_title': a.course.course_title,
-            'batch': a.batch,
+            'batch': a.course.curriculum.batch.label,
             'section': a.section,
-            'department': a.course.department
+            'department': a.course.curriculum.department.code
         })
     return jsonify(res)

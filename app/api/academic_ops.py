@@ -2,7 +2,7 @@ from flask import jsonify, request
 from flask_login import login_required, current_user
 from app import db
 from app.api import api
-from app.models import GradeScale, ClassTimetable, CourseAllocation
+from app.models import GradeScale, ClassTimetable, CourseAllocation, Curriculum, Department, Course, Batch
 from app.utils.logger import audit_log
 
 # ─────────────────────────────────────────────
@@ -61,8 +61,7 @@ def manage_timetable():
     batch   = request.args.get('batch')
     section = request.args.get('section', 'A')
     
-    query = ClassTimetable.query.join(CourseAllocation)
-    if batch: query = query.filter(CourseAllocation.batch == batch)
+    if batch: query = query.filter(CourseAllocation.course.has(Course.curriculum.has(Curriculum.batch.has(Batch.label == batch))))
     if section: query = query.filter(CourseAllocation.section == section)
     
     entries = query.all()
@@ -94,9 +93,9 @@ def get_students_for_allocation(aid):
     alloc = CourseAllocation.query.get_or_404(aid)
     # Filter students by the allocation's batch, department (or degree), and section
     students = Student.query.filter_by(
-        batch=alloc.batch,
-        department=alloc.course.department, # Assumes course dept matches student dept
-        semester=alloc.course.semester # Optional filter
+        batch=alloc.course.curriculum.batch.label,
+        department=alloc.course.curriculum.department.code,
+        semester=alloc.course.semester
     ).all()
     
     return jsonify([{
@@ -143,5 +142,5 @@ def submit_internal_marks():
             pass
             
     db.session.commit()
-    audit_log.log("SUBMIT_MARKS", {"course": alloc.course.course_code, "batch": alloc.batch})
+    audit_log.log("SUBMIT_MARKS", {"course": alloc.course.course_code, "batch": alloc.course.curriculum.batch.label})
     return jsonify({'message': 'Marks updated successfully'})

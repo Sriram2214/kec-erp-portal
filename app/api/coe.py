@@ -259,7 +259,7 @@ def courier_sheet():
     exam_data = [
         ["Course Code:", course.course_code, "Exam Date:", schedule.exam_date.strftime('%d-%m-%Y') if schedule else 'N/A'],
         ["Course Title:", course.course_title, "Session:", schedule.session if schedule else 'N/A'],
-        ["Degree/Branch:", f"B.E. / {course.department}", "Regulation:", course.regulation],
+        ["Degree/Branch:", f"B.E. / {course.curriculum.department.code}", "Regulation:", course.curriculum.regulation.name],
     ]
     et = Table(exam_data, colWidths=[35*mm, 50*mm, 35*mm, 30*mm])
     et.setStyle(TableStyle([

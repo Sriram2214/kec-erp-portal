@@ -1,6 +1,6 @@
 from flask import jsonify, request
 from flask_login import login_required, current_user
-from app.models import Student, InternalMarks, Attendance, Course, CourseAllocation, AcademicYear, DummySticker, FoilMark, ExamSchedule
+from app.models import Student, InternalMarks, Attendance, Course, CourseAllocation, AcademicYear, DummySticker, FoilMark, ExamSchedule, Curriculum, Department
 from app import db
 from app.api import api
 
@@ -79,7 +79,7 @@ def report_result_galley():
     dept  = request.args.get('dept')
     if not all([batch, dept]): return jsonify({'message': 'Batch and Dept required'}), 400
     students = Student.query.filter_by(batch=batch, department=dept).order_by(Student.register_number).all()
-    courses = Course.query.filter_by(department=dept).all()
+    courses = Course.query.join(Curriculum).join(Curriculum.department).filter(Department.code == dept).all()
     res = []
     for s in students:
         marks = {}

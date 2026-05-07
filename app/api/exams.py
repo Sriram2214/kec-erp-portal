@@ -1,6 +1,6 @@
 from flask import jsonify, request
 from flask_login import login_required, current_user
-from app.models import Course, ExamSchedule, AcademicYear, DummySticker, Attendance
+from app.models import Course, ExamSchedule, AcademicYear, DummySticker, Attendance, Curriculum
 from app import db
 from app.api import api
 from app.utils.logger import audit_log
@@ -33,7 +33,7 @@ def manage_courses():
     return jsonify([{
         'id': c.id, 'course_code': c.course_code,
         'course_title': c.course_title,
-        'department': c.department, 'credits': c.credits,
+        'department': c.curriculum.department.code, 'credits': c.credits,
     } for c in Course.query.all()])
 
 @api.route('/courses/<int:cid>', methods=['DELETE'])
@@ -86,7 +86,7 @@ def ese_courses_by_date():
             'schedule_id':   sch.id,
             'course_code':   c.course_code,
             'course_title':  c.course_title,
-            'department':    c.department,
+            'department':    sch.course.curriculum.department.code,
             'session':       sch.session,
             'sticker_count': sticker_count,
             'present_count': present_count,

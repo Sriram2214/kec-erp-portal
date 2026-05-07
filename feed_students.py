@@ -6,7 +6,11 @@ app = create_app()
 
 def feed_data():
     with app.app_context():
-        print('Wiping existing students...')
+        print('Wiping existing student-related records...')
+        from app.models import Attendance, DummySticker, CourseRegistration
+        Attendance.query.delete()
+        DummySticker.query.delete()
+        CourseRegistration.query.delete()
         Student.query.delete()
         db.session.commit()
         

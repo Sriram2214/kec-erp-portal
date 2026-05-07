@@ -62,12 +62,30 @@ def init_db():
         
         if not Course.query.first():
             courses = [
+                # CSE
                 ('CS8651', 'Internet Programming', 'CSE', 6),
                 ('CS8691', 'Artificial Intelligence', 'CSE', 6),
+                ('CS8075', 'Data Warehousing and Data Mining', 'CSE', 7),
+                ('CS8081', 'Internet of Things', 'CSE', 8),
+                # IT
                 ('IT8601', 'Computational Intelligence', 'IT', 6),
+                ('IT8076', 'Software Testing', 'IT', 7),
+                ('IT8761', 'Security Laboratory', 'IT', 8),
+                # ECE
                 ('EC8691', 'Microprocessors and Microcontrollers', 'ECE', 6),
+                ('EC8094', 'Satellite Communication', 'ECE', 7),
+                ('EC8092', 'Advanced Wireless Communication', 'ECE', 8),
+                # MECH
                 ('EE8601', 'Solid State Drives', 'MECH', 6),
+                ('ME8091', 'Automobile Engineering', 'MECH', 7),
+                ('ME8073', 'Unconventional Machining Processes', 'MECH', 8),
+                # AI&DS
                 ('GE2412', 'Universal Human Values', 'AI&DS', 6),
+                ('AD8501', 'Optimization Techniques', 'AI&DS', 5),
+                ('AD8012', 'Software Project Management', 'AI&DS', 7),
+                # RAA
+                ('RA3601', 'Autonomous Systems', 'RAA', 6),
+                ('RA3401', 'Robot Kinematics', 'RAA', 4),
             ]
             for code, title, dept, sem in courses:
                 db.session.add(Course(course_code=code, course_title=title, department=dept, semester=sem, credits=3))

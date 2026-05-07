@@ -987,7 +987,8 @@ def session_daywise_report_pdf():
         for i, sched in enumerate(session_schedules, 1):
             course = sched.course
             # Count students for this course's semester
-            strength = Student.query.filter_by(semester=course.semester).count()
+            # Count only registered students for this specific course curriculum instance
+            strength = CourseRegistration.query.filter_by(course_id=course.id).count()
             # Count attendance
             present = Attendance.query.filter_by(exam_schedule_id=sched.id, status='Present').count()
             absent = Attendance.query.filter_by(exam_schedule_id=sched.id, status='Absent').count()
@@ -1083,7 +1084,7 @@ def qp_cover_report_pdf():
     data = [[Paragraph('<b>SNo</b>', ParagraphStyle('TH1', textColor=WHITE, alignment=TA_CENTER)), Paragraph('<b>Course</b>', ParagraphStyle('TH2', textColor=WHITE)), Paragraph('<b>Session</b>', ParagraphStyle('TH3', textColor=WHITE, alignment=TA_CENTER)), Paragraph('<b>Strength</b>', ParagraphStyle('TH4', textColor=WHITE, alignment=TA_CENTER)), Paragraph('<b>Packets Needed</b>', ParagraphStyle('TH5', textColor=WHITE, alignment=TA_CENTER)), Paragraph('<b>Issued By</b>', ParagraphStyle('TH6', textColor=WHITE, alignment=TA_CENTER))]]
     
     for i, s in enumerate(schedules, 1):
-        strength = Student.query.filter_by(semester=s.course.semester).count()
+        strength = CourseRegistration.query.filter_by(course_id=s.course.id).count()
         packets = math.ceil(strength / 30)
         data.append([str(i), f"{s.course.course_code}\n{s.course.course_title}", s.session, str(strength), f"{packets} (of 30)", ""])
 
@@ -1119,7 +1120,7 @@ def attendance_status_report_pdf():
     data = [[Paragraph('<b>SNo</b>', ParagraphStyle('TH',textColor=WHITE,alignment=TA_CENTER)), Paragraph('<b>Course</b>', ParagraphStyle('TH',textColor=WHITE)), Paragraph('<b>Sess</b>', ParagraphStyle('TH',textColor=WHITE)), Paragraph('<b>Total</b>', ParagraphStyle('TH',textColor=WHITE,alignment=TA_CENTER)), Paragraph('<b>Present</b>', ParagraphStyle('TH',textColor=WHITE,alignment=TA_CENTER)), Paragraph('<b>Absent</b>', ParagraphStyle('TH',textColor=WHITE,alignment=TA_CENTER)), Paragraph('<b>Status</b>', ParagraphStyle('TH',textColor=WHITE,alignment=TA_CENTER))]]
     
     for i, s in enumerate(schedules, 1):
-        total = Student.query.filter_by(semester=s.course.semester).count()
+        total = CourseRegistration.query.filter_by(course_id=s.course.id).count()
         present = Attendance.query.filter_by(exam_schedule_id=s.id, status='Present').count()
         absent = Attendance.query.filter_by(exam_schedule_id=s.id, status='Absent').count()
         status = "MARKED" if (present+absent) > 0 else "PENDING"

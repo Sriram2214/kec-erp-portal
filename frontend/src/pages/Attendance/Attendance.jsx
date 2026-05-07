@@ -280,7 +280,6 @@ export default function Attendance() {
                   
                   if (matches.length === 1) {
                     setSelectedInstanceId(matches[0].id)
-                    handleLoad(val, matches[0].id)
                   }
                 }}
               >
@@ -306,7 +305,7 @@ export default function Attendance() {
             )}
           </div>
 
-          {matchingInstances.length > 1 && (
+          {matchingInstances.length > 0 && (
             <div className="ese-input-wrap fade-in">
               <label>SELECT DEPARTMENT / REGULATION</label>
               <select
@@ -331,7 +330,7 @@ export default function Attendance() {
           <button
             className="btn btn-gold ese-load-btn"
             onClick={() => handleLoad()}
-            disabled={loading || !courseCode.trim() || (matchingInstances.length > 1 && !selectedInstanceId)}
+            disabled={loading || !courseCode.trim() || (matchingInstances.length > 0 && !selectedInstanceId)}
           >
             {loading ? (
               <span className="ese-spinner" />

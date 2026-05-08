@@ -29,7 +29,7 @@ const Courses     = lazy(() => import('./pages/Courses/Courses'))
 const Allocations = lazy(() => import('./pages/Allocations/Allocations'))
 const AcademicOps = lazy(() => import('./pages/AcademicOps/AcademicOps'))
 const Departments = lazy(() => import('./pages/Departments/Departments'))
-const ExamSchedule = lazy(() => import('./pages/ExamSchedule/ExamSchedule'))
+import ExamSchedule from './pages/ExamSchedule/ExamSchedule'
 const Registration = lazy(() => import('./pages/Registration/Registration'))
 const Clearance    = lazy(() => import('./pages/Clearance/Clearance'))
 const Reports      = lazy(() => import('./pages/Reports/Reports'))
@@ -107,7 +107,7 @@ export default function App() {
               <Route path="/master"      element={<PrivateRoute allowedRoles={['admin']}><Master /></PrivateRoute>} />
               <Route path="/courses"     element={<PrivateRoute allowedRoles={['admin']}><Courses /></PrivateRoute>} />
               <Route path="/allocations" element={<PrivateRoute allowedRoles={['admin']}><Allocations /></PrivateRoute>} />
-              <Route path="/exam-timetable" element={<PrivateRoute allowedRoles={['admin', 'coe', 'student', 'faculty']}><ExamSchedule /></PrivateRoute>} />
+              <Route path="/exam-timetable" element={<PrivateRoute allowedRoles={['admin', 'coe', 'student', 'faculty']}><ExamSchedule /></PrivateRoute>} /> {/* v2.1 */}
               <Route path="/registration" element={<PrivateRoute allowedRoles={['student', 'admin']}><Registration /></PrivateRoute>} />
               <Route path="/clearance"   element={<PrivateRoute allowedRoles={['admin', 'coe']}><Clearance /></PrivateRoute>} />
               <Route path="/reports"     element={<PrivateRoute allowedRoles={['admin', 'coe']}><Reports /></PrivateRoute>} />

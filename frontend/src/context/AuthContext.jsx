@@ -4,14 +4,31 @@ import api from '../api/index'
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null)
+  const [user, setUser] = useState(() => {
+    const saved = localStorage.getItem('kec_user')
+    return saved ? JSON.parse(saved) : null
+  })
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    api.get('/me')
-      .then(r => setUser(r.data))
-      .catch(() => setUser(null))
-      .finally(() => setLoading(false))
+    const checkAuth = async () => {
+      try {
+        const res = await api.get('/me')
+        setUser(res.data)
+        localStorage.setItem('kec_user', JSON.stringify(res.data))
+      } catch (e) {
+        // If /me fails, but we have a user in localStorage, the axios interceptor
+        // will attempt to restore the session automatically. 
+        // We only clear if the session is definitely invalid.
+        if (e.response?.status === 401) {
+           setUser(null)
+           localStorage.removeItem('kec_user')
+        }
+      } finally {
+        setLoading(false)
+      }
+    }
+    checkAuth()
   }, [])
 
   const login = async (username, password, role) => {

@@ -6,6 +6,7 @@ import { Calendar, Clock, MapPin, Plus, Trash2, Search, X, Check, AlertCircle } 
 import { Skeleton } from '../../components/Skeleton/Skeleton'
 import './ExamSchedule.css'
 
+// EXAM SCHEDULE v2.1 - LIVE DATA RE-ENABLED
 export default function ExamSchedule() {
   const [schedules, setSchedules] = useState([])
   const [courses, setCourses] = useState([])

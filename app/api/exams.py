@@ -4,6 +4,8 @@ from app.models import Course, ExamSchedule, AcademicYear, DummySticker, Attenda
 from app import db
 from app.api import api
 from app.utils.logger import audit_log
+from app.utils.timetable_pdf import generate_timetable_pdf
+from flask import send_file
 import datetime as dt
 
 @api.route('/courses', methods=['GET', 'POST'])
@@ -130,23 +132,40 @@ def manage_schedules():
         if not all([d.get('course_id'), d.get('exam_date'), d.get('session')]):
             return jsonify({'message': 'Missing fields'}), 400
         
-        # Check if already exists
-        existing = ExamSchedule.query.filter_by(
-            course_id = d['course_id'],
-            exam_date = dt.datetime.strptime(d['exam_date'], '%Y-%m-%d').date()
+        try:
+            target_date = dt.datetime.strptime(d['exam_date'], '%Y-%m-%d').date()
+        except:
+            return jsonify({'message': 'Invalid date format'}), 400
+
+        # 1. Prevent Past Dates
+        if target_date < dt.date.today():
+            return jsonify({'message': 'Cannot schedule exams in the past'}), 400
+
+        # 2. Prevent Course Redundancy (Already scheduled on another date?)
+        redundant = ExamSchedule.query.filter_by(course_id=d['course_id']).first()
+        if redundant:
+            return jsonify({'message': f'This course is already scheduled for {redundant.exam_date}'}), 409
+
+        # 3. Venue Conflict Detection (Same date, same session, same venue)
+        conflict = ExamSchedule.query.filter_by(
+            exam_date = target_date,
+            session   = d['session'].upper(),
+            venue     = d.get('venue', 'Main Hall').strip()
         ).first()
-        if existing: return jsonify({'message': 'Schedule already exists for this course/date'}), 409
+        
+        if conflict:
+            return jsonify({'message': f'Conflict detected! {conflict.venue} is already occupied by {conflict.course.course_code} during the {conflict.session} session.'}), 409
         
         s = ExamSchedule(
             course_id        = d['course_id'],
-            exam_date        = dt.datetime.strptime(d['exam_date'], '%Y-%m-%d').date(),
+            exam_date        = target_date,
             session          = d['session'].upper(),
-            venue            = d.get('venue', 'Main Hall'),
+            venue            = d.get('venue', 'Main Hall').strip(),
             academic_year_id = d.get('academic_year_id')
         )
         db.session.add(s)
         db.session.commit()
-        audit_log.log("ADD_SCHEDULE", {"course_id": d['course_id'], "date": d['exam_date']})
+        audit_log.log("ADD_SCHEDULE", {"course_id": d['course_id'], "date": d['exam_date'], "venue": s.venue})
         return jsonify({'message': 'Schedule added', 'id': s.id}), 201
 
     return jsonify([{
@@ -158,6 +177,26 @@ def manage_schedules():
         'session':      s.session,
         'venue':        s.venue,
     } for s in ExamSchedule.query.order_by(ExamSchedule.exam_date).all()])
+
+@api.route('/schedules/download', methods=['GET'])
+@login_required
+def download_timetable():
+    if current_user.role not in ['admin', 'coe']:
+        return jsonify({'message': 'Access denied'}), 403
+        
+    schedules = ExamSchedule.query.order_by(ExamSchedule.exam_date, ExamSchedule.session).all()
+    if not schedules:
+        return jsonify({'message': 'No schedules found to export'}), 404
+        
+    pdf_buffer = generate_timetable_pdf(schedules)
+    
+    filename = f"KEC_Timetable_{dt.date.today().isoformat()}.pdf"
+    return send_file(
+        pdf_buffer,
+        mimetype='application/pdf',
+        as_attachment=True,
+        download_name=filename
+    )
 
 @api.route('/schedules/<int:sid>', methods=['DELETE'])
 @login_required

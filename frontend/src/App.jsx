@@ -29,7 +29,7 @@ const Courses     = lazy(() => import('./pages/Courses/Courses'))
 const Allocations = lazy(() => import('./pages/Allocations/Allocations'))
 const AcademicOps = lazy(() => import('./pages/AcademicOps/AcademicOps'))
 const Departments = lazy(() => import('./pages/Departments/Departments'))
-import ExamSchedule from './pages/ExamSchedule/ExamSchedule'
+import ExamSchedule from './pages/Schedules/ExamSchedule'
 const Registration = lazy(() => import('./pages/Registration/Registration'))
 const Clearance    = lazy(() => import('./pages/Clearance/Clearance'))
 const Reports      = lazy(() => import('./pages/Reports/Reports'))

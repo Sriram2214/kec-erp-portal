@@ -1,8 +1,71 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import api from '../../api/index'
-import { Clock, FileEdit, Truck, Users, GraduationCap, BookOpen, BarChart3 } from 'lucide-react'
+import { 
+  Clock, FileEdit, Truck, Users, GraduationCap, 
+  BookOpen, BarChart3, ShieldCheck, AlertTriangle, 
+  Activity, Zap, Search, Bell
+} from 'lucide-react'
 import './Dashboard.css'
+
+function AgentStatus() {
+  const [status, setStatus] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    api.get('/agent/status')
+      .then(r => setStatus(r.data))
+      .catch(() => setStatus(null))
+      .finally(() => setLoading(false))
+  }, [])
+
+  if (loading) return <div className="agent-card skeleton-pulse">Scanning System Integrity...</div>
+  if (!status) return null
+
+  return (
+    <div className={`agent-card fade-in ${status.unresolved_issues > 0 ? 'warning' : 'healthy'}`}>
+      <div className="agent-header">
+        <div className="agent-title-wrap">
+          <div className="agent-pulse" />
+          <Activity size={18} />
+          <h3>System Guardian Intelligence</h3>
+        </div>
+        <div className="agent-score">
+          Health Score: <strong>{status.health_score}%</strong>
+        </div>
+      </div>
+      
+      <div className="agent-content">
+        <div className="agent-main-status">
+          {status.unresolved_issues === 0 ? (
+            <div className="status-message healthy">
+              <ShieldCheck size={20} />
+              <span>All backend systems operational. No issues detected in the last 24 hours.</span>
+            </div>
+          ) : (
+            <div className="status-message warning">
+              <AlertTriangle size={20} />
+              <span>The Agent has detected <strong>{status.unresolved_issues}</strong> unresolved system logs. Action recommended.</span>
+            </div>
+          )}
+        </div>
+
+        {status.recent_logs?.length > 0 && (
+          <div className="agent-logs">
+            <label>RECENT AGENT OBSERVATIONS</label>
+            {status.recent_logs.map(log => (
+              <div key={log.id} className={`agent-log-item ${log.severity}`}>
+                <span className="log-cat">{log.category}</span>
+                <span className="log-msg">{log.message}</span>
+                <span className="log-time">{new Date(log.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
 
 export default function Dashboard() {
   const { user } = useAuth()
@@ -76,6 +139,11 @@ export default function Dashboard() {
           </div>
         </div>
 
+        <AgentStatus />
+      </div>
+    )
+  }
+
         {/* Removed redundant content cards as per user request */}
       </div>
     )
@@ -123,7 +191,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Removed redundant administrative tools as per user request */}
+      <AgentStatus />
     </div>
   )
 }

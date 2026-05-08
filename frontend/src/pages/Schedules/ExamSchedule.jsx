@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react'
 import api from '../../api/index'
 import { useMaster } from '../../context/MasterContext'
 import { useToast } from '../../components/Toast/Toast'
-import { Calendar, Clock, MapPin, Plus, Trash2, Search, X, Check, AlertCircle } from 'lucide-react'
+import { Calendar, Clock, MapPin, Plus, Trash2, Search, X, Check, AlertCircle, Download } from 'lucide-react'
 import { Skeleton } from '../../components/Skeleton/Skeleton'
 import './ExamSchedule.css'
 
-// EXAM SCHEDULE v2.1 - LIVE DATA RE-ENABLED
+// EXAM SCHEDULE v2.2 - HARD FORCE DEPLOY
 export default function ExamSchedule() {
   const [schedules, setSchedules] = useState([])
   const [courses, setCourses] = useState([])
@@ -64,6 +64,21 @@ export default function ExamSchedule() {
     }
   }
 
+  const handleDownload = async () => {
+    try {
+      const res = await api.get('/schedules/download', { responseType: 'blob' })
+      const url = window.URL.createObjectURL(new Blob([res.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `KEC_Timetable_${new Date().toISOString().split('T')[0]}.pdf`)
+      document.body.appendChild(link)
+      link.click()
+      addToast('Timetable downloaded successfully!', 'success')
+    } catch (e) {
+      addToast('Failed to generate PDF', 'error')
+    }
+  }
+
   const filtered = schedules.filter(s => 
     s.course_code?.toLowerCase().includes(search.toLowerCase()) ||
     s.course_title?.toLowerCase().includes(search.toLowerCase())
@@ -89,9 +104,14 @@ export default function ExamSchedule() {
               />
             </div>
           </div>
-          <button className="btn btn-gold" onClick={() => setShowAdd(true)}>
-            <Plus size={18} /> Create New Entry
-          </button>
+          <div style={{ display: 'flex', gap: '1rem' }}>
+            <button className="btn btn-outline" onClick={handleDownload} disabled={schedules.length === 0}>
+              <Download size={18} /> Download PDF
+            </button>
+            <button className="btn btn-gold" onClick={() => setShowAdd(true)}>
+              <Plus size={18} /> Create New Entry
+            </button>
+          </div>
         </div>
       </div>
 

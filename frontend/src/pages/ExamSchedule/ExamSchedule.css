@@ -1,22 +1,301 @@
-.loading {
-  padding: 2rem;
-  text-align: center;
-  color: var(--text-muted);
-  font-family: 'Cinzel', serif;
+.exam-schedule-page {
+  padding-bottom: 5rem;
 }
 
-.empty-row {
-  text-align: center;
-  padding: 3rem !important;
-  color: var(--text-light);
-  font-style: italic;
+/* ── Date Cells ── */
+.date-cell {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
 }
 
-.badge-gold {
-  background: var(--gold-glow);
-  color: var(--gold-vivid);
-  padding: 0.2rem 0.6rem;
-  border-radius: 4px;
-  font-size: 0.7rem;
+.date-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  width: 52px;
+  height: 52px;
+  transition: all 0.3s;
+}
+
+.table-row-hover:hover .date-badge {
+  background: var(--navy);
+  border-color: var(--navy);
+}
+
+.date-badge .day {
+  font-size: 1.2rem;
   font-weight: 800;
+  line-height: 1;
+  color: var(--navy);
+}
+
+.date-badge .month {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--gold);
+}
+
+.table-row-hover:hover .date-badge .day { color: white; }
+
+.date-info .year {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.date-info .weekday {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* ── Course Cells ── */
+.course-code-tag {
+  font-family: 'Inter', monospace;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--gold-vivid);
+  background: #fff9e6;
+  padding: 2px 8px;
+  border-radius: 4px;
+  display: inline-block;
+  margin-bottom: 4px;
+  border: 1px solid rgba(201, 162, 39, 0.2);
+}
+
+.course-title-main {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--navy);
+  max-width: 300px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Session & Venue Chips ── */
+.session-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 20px;
+  width: fit-content;
+}
+
+.session-chip.FN { background: #e0f2fe; color: #0369a1; }
+.session-chip.AN { background: #fef3c7; color: #92400e; }
+
+.venue-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* ── Modal Design ── */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(15, 26, 61, 0.4);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.modal-content {
+  width: 90%;
+  max-width: 540px;
+  padding: 2rem;
+  border-radius: 16px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+
+.modal-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.modal-title-wrap h3 {
+  font-family: 'Cinzel', serif;
+  font-size: 1.4rem;
+  color: var(--navy);
+  margin: 0;
+}
+
+.close-icon-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.close-icon-btn:hover {
+  background: var(--surface-2);
+  color: var(--red);
+}
+
+/* ── Form Layout ── */
+.form-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+.form-row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.session-toggle-premium {
+  display: flex;
+  background: var(--surface-2);
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  height: 42px;
+}
+
+.session-toggle-premium button {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.session-toggle-premium button small {
+  font-size: 0.6rem;
+  opacity: 0.6;
+  font-weight: 400;
+}
+
+.session-toggle-premium button.active {
+  background: white;
+  color: var(--navy);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.venue-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface-2);
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  padding: 0 1rem;
+}
+
+.venue-input-wrap input {
+  border: none;
+  background: transparent;
+  outline: none;
+  height: 42px;
+  width: 100%;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+/* ── Table Styling ── */
+.premium-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.premium-table th {
+  text-align: left;
+  padding: 1rem 1.5rem;
+  background: #f8fafc;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  border-bottom: 2px solid var(--border);
+}
+
+.premium-table td {
+  padding: 1.2rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.table-row-hover {
+  transition: all 0.2s;
+}
+
+.table-row-hover:hover {
+  background: #f1f5f9;
+}
+
+.delete-action-btn {
+  background: transparent;
+  border: none;
+  color: #cbd5e1;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.delete-action-btn:hover {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+.text-right { text-align: right; }
+.text-gold { color: var(--gold); }
+
+.empty-state-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 5rem 2rem;
+  text-align: center;
+}
+
+.empty-state-wrap h3 {
+  margin: 1.5rem 0 0.5rem;
+  color: var(--navy);
+}
+
+.empty-state-wrap p {
+  color: var(--text-muted);
 }

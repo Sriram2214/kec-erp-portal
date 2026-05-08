@@ -17,15 +17,19 @@ def manage_grades():
         
         # Expecting a list of grade objects
         if isinstance(data, list):
-            GradeScale.query.delete() # Reset
-            for g in data:
-                db.session.add(GradeScale(
-                    grade=g['grade'], min_mark=g['min_mark'], 
-                    max_mark=g['max_mark'], points=g['points']
-                ))
-            db.session.commit()
-            audit_log.log("UPDATE_GRADE_SCALE")
-            return jsonify({'message': 'Grade scale updated'})
+            try:
+                GradeScale.query.delete() # Reset
+                for g in data:
+                    db.session.add(GradeScale(
+                        grade=g['grade'], min_mark=g['min_mark'], 
+                        max_mark=g['max_mark'], points=g['points']
+                    ))
+                db.session.commit()
+                audit_log.log("UPDATE_GRADE_SCALE")
+                return jsonify({'message': 'Grade scale updated'})
+            except Exception as e:
+                db.session.rollback()
+                return jsonify({'message': f'Update failed: {str(e)}'}), 500
             
     return jsonify([{
         'id': g.id, 'grade': g.grade, 'min_mark': g.min_mark, 
@@ -135,20 +139,24 @@ def submit_internal_marks():
     alloc    = CourseAllocation.query.get_or_404(alloc_id)
     records  = d.get('marks', {})
     
-    for sid, m in records.items():
-        record = InternalMarks.query.filter_by(student_id=sid, course_id=alloc.course_id).first()
-        if not record:
-            record = InternalMarks(student_id=sid, course_id=alloc.course_id)
-            db.session.add(record)
-        
-        if 'marks' in m: record.marks = float(m['marks'])
-        if 'assignment' in m: record.assignment_marks = float(m['assignment'])
-        
-        # New: Practical/Lab Mark handling (Item 29)
-        if alloc.course.is_lab:
-            # Logic for Lab internal marks calculation
-            pass
+    try:
+        for sid, m in records.items():
+            record = InternalMarks.query.filter_by(student_id=sid, course_id=alloc.course_id).first()
+            if not record:
+                record = InternalMarks(student_id=sid, course_id=alloc.course_id)
+                db.session.add(record)
             
-    db.session.commit()
-    audit_log.log("SUBMIT_MARKS", {"course": alloc.course.course_code, "batch": alloc.course.curriculum.batch.label})
-    return jsonify({'message': 'Marks updated successfully'})
+            if 'marks' in m: record.marks = float(m['marks'])
+            if 'assignment' in m: record.assignment_marks = float(m['assignment'])
+            
+            # New: Practical/Lab Mark handling (Item 29)
+            if alloc.course.is_lab:
+                # Logic for Lab internal marks calculation
+                pass
+                
+        db.session.commit()
+        audit_log.log("SUBMIT_MARKS", {"course": alloc.course.course_code, "batch": alloc.course.curriculum.batch.label})
+        return jsonify({'message': 'Marks updated successfully'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'message': f'Submission failed: {str(e)}'}), 500

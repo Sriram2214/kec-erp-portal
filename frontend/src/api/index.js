@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { toastEvents } from './toastBus'
 
 const api = axios.create({
   baseURL: '/api',
@@ -11,10 +12,10 @@ api.interceptors.response.use(
   res => res,
   async err => {
     const status = err.response?.status
+    
     if (status === 401 && !err.config._retried && !_restoring) {
       _restoring = true
       try {
-        // Detect which user was last logged in from the page
         const stored = localStorage.getItem('kec_user')
         const username = stored ? JSON.parse(stored).username : null
         if (username) {
@@ -23,11 +24,16 @@ api.interceptors.response.use(
           _restoring = false
           return api.request(err.config)
         }
-      } catch (e) {
-        // silent
-      }
+      } catch (e) { /* silent */ }
       _restoring = false
     }
+
+    // Global Error Notification
+    const msg = err.response?.data?.message || 'Server connection lost. Please try again.'
+    if (status !== 401) {
+      toastEvents.emit(msg, 'error')
+    }
+    
     return Promise.reject(err)
   }
 )

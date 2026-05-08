@@ -29,15 +29,17 @@ export function MasterProvider({ children }) {
     }
 
     try {
-      const [masterRes, coursesRes] = await Promise.all([
-        api.get('/master'),
-        api.get('/courses')
-      ]);
-      
+      // 1. Fetch Master Data (Fast)
+      const masterRes = await api.get('/master')
+      setMaster(prev => ({ ...prev, ...masterRes.data }))
+      setLoading(false) // Allow UI to render with master data
+
+      // 2. Fetch Courses (Heavier) in the background
+      const coursesRes = await api.get('/courses?fields=minimal_meta')
       const newData = {
         ...masterRes.data,
         courses: coursesRes.data
-      };
+      }
       
       setMaster(newData)
       localStorage.setItem('kec_master_data', JSON.stringify({

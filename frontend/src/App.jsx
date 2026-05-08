@@ -62,6 +62,7 @@ function PrivateRoute({ children, allowedRoles }) {
 }
 
 import { MasterProvider } from './context/MasterContext'
+import { ToastProvider } from './components/Toast/Toast'
 
 export default function App() {
   const [showSplash, setShowSplash] = useState(true)
@@ -81,43 +82,45 @@ export default function App() {
     <BrowserRouter>
       <ErrorBoundary>
         <AuthProvider>
-          <MasterProvider>
-            <Routes>
-            <Route path="/"      element={<Navigate to="/login" replace />} />
-            <Route path="/login"          element={<Suspense fallback={<PageLoader />}><Login /></Suspense>} />
-            <Route path="/coe-login"      element={<Suspense fallback={<PageLoader />}><COELogin /></Suspense>} />
-            <Route path="/admin-login"    element={<Suspense fallback={<PageLoader />}><AdminLogin /></Suspense>} />
-            <Route path="/student-portal" element={<Suspense fallback={<PageLoader />}><StudentLogin /></Suspense>} />
-            <Route path="/faculty-portal" element={<Suspense fallback={<PageLoader />}><FacultyLogin /></Suspense>} />
+          <ToastProvider>
+            <MasterProvider>
+              <Routes>
+              <Route path="/"      element={<Navigate to="/login" replace />} />
+              <Route path="/login"          element={<Suspense fallback={<PageLoader />}><Login /></Suspense>} />
+              <Route path="/coe-login"      element={<Suspense fallback={<PageLoader />}><COELogin /></Suspense>} />
+              <Route path="/admin-login"    element={<Suspense fallback={<PageLoader />}><AdminLogin /></Suspense>} />
+              <Route path="/student-portal" element={<Suspense fallback={<PageLoader />}><StudentLogin /></Suspense>} />
+              <Route path="/faculty-portal" element={<Suspense fallback={<PageLoader />}><FacultyLogin /></Suspense>} />
 
-            {/* Active pages */}
-            <Route path="/dashboard"  element={<PrivateRoute><Dashboard  /></PrivateRoute>} />
-            <Route path="/students"   element={<PrivateRoute allowedRoles={['admin', 'coe']}><Students   /></PrivateRoute>} />
-            <Route path="/faculty"    element={<PrivateRoute allowedRoles={['admin']}><Faculty    /></PrivateRoute>} />
-            <Route path="/departments" element={<PrivateRoute allowedRoles={['admin', 'coe']}><Departments /></PrivateRoute>} />
-            <Route path="/attendance"  element={<PrivateRoute allowedRoles={['faculty', 'admin']}><RegularAttendance /></PrivateRoute>} />
-            <Route path="/marks"       element={<PrivateRoute allowedRoles={['faculty', 'admin']}><RegularMarks /></PrivateRoute>} />
-            <Route path="/ese-attendance" element={<PrivateRoute allowedRoles={['admin', 'coe']}><ESEAttendance /></PrivateRoute>} />
-            <Route path="/stickers"    element={<PrivateRoute allowedRoles={['admin', 'coe']}><Stickers   /></PrivateRoute>} />
-            <Route path="/results"    element={<PrivateRoute><Results    /></PrivateRoute>} />
-            <Route path="/halltickets" element={<PrivateRoute><HallTickets /></PrivateRoute>} />
-            <Route path="/security"    element={<PrivateRoute allowedRoles={['admin']}><Security /></PrivateRoute>} />
-            <Route path="/master"      element={<PrivateRoute allowedRoles={['admin']}><Master /></PrivateRoute>} />
-            <Route path="/courses"     element={<PrivateRoute allowedRoles={['admin']}><Courses /></PrivateRoute>} />
-            <Route path="/allocations" element={<PrivateRoute allowedRoles={['admin']}><Allocations /></PrivateRoute>} />
-            <Route path="/exam-timetable" element={<PrivateRoute allowedRoles={['admin', 'coe', 'student', 'faculty']}><ExamSchedule /></PrivateRoute>} />
-            <Route path="/registration" element={<PrivateRoute allowedRoles={['student', 'admin']}><Registration /></PrivateRoute>} />
-            <Route path="/clearance"   element={<PrivateRoute allowedRoles={['admin', 'coe']}><Clearance /></PrivateRoute>} />
-            <Route path="/reports"     element={<PrivateRoute allowedRoles={['admin', 'coe']}><Reports /></PrivateRoute>} />
-            <Route path="/coe"         element={<PrivateRoute allowedRoles={['admin', 'coe']}><COE /></PrivateRoute>} />
-            <Route path="/valuation"   element={<PrivateRoute allowedRoles={['admin', 'coe']}><Valuation /></PrivateRoute>} />
-            <Route path="/certificates" element={<PrivateRoute><Certificates /></PrivateRoute>} />
-            <Route path="/coe-reports" element={<PrivateRoute allowedRoles={['coe', 'admin']}><COEReports /></PrivateRoute>} />
-            <Route path="/analytics"   element={<PrivateRoute allowedRoles={['admin', 'coe']}><Analytics /></PrivateRoute>} />
+              {/* Active pages */}
+              <Route path="/dashboard"  element={<PrivateRoute><Dashboard  /></PrivateRoute>} />
+              <Route path="/students"   element={<PrivateRoute allowedRoles={['admin', 'coe']}><Students   /></PrivateRoute>} />
+              <Route path="/faculty"    element={<PrivateRoute allowedRoles={['admin']}><Faculty    /></PrivateRoute>} />
+              <Route path="/departments" element={<PrivateRoute allowedRoles={['admin', 'coe']}><Departments /></PrivateRoute>} />
+              <Route path="/attendance"  element={<PrivateRoute allowedRoles={['faculty', 'admin']}><RegularAttendance /></PrivateRoute>} />
+              <Route path="/marks"       element={<PrivateRoute allowedRoles={['faculty', 'admin']}><RegularMarks /></PrivateRoute>} />
+              <Route path="/ese-attendance" element={<PrivateRoute allowedRoles={['admin', 'coe']}><ESEAttendance /></PrivateRoute>} />
+              <Route path="/stickers"    element={<PrivateRoute allowedRoles={['admin', 'coe']}><Stickers   /></PrivateRoute>} />
+              <Route path="/results"    element={<PrivateRoute><Results    /></PrivateRoute>} />
+              <Route path="/halltickets" element={<PrivateRoute><HallTickets /></PrivateRoute>} />
+              <Route path="/security"    element={<PrivateRoute allowedRoles={['admin']}><Security /></PrivateRoute>} />
+              <Route path="/master"      element={<PrivateRoute allowedRoles={['admin']}><Master /></PrivateRoute>} />
+              <Route path="/courses"     element={<PrivateRoute allowedRoles={['admin']}><Courses /></PrivateRoute>} />
+              <Route path="/allocations" element={<PrivateRoute allowedRoles={['admin']}><Allocations /></PrivateRoute>} />
+              <Route path="/exam-timetable" element={<PrivateRoute allowedRoles={['admin', 'coe', 'student', 'faculty']}><ExamSchedule /></PrivateRoute>} />
+              <Route path="/registration" element={<PrivateRoute allowedRoles={['student', 'admin']}><Registration /></PrivateRoute>} />
+              <Route path="/clearance"   element={<PrivateRoute allowedRoles={['admin', 'coe']}><Clearance /></PrivateRoute>} />
+              <Route path="/reports"     element={<PrivateRoute allowedRoles={['admin', 'coe']}><Reports /></PrivateRoute>} />
+              <Route path="/coe"         element={<PrivateRoute allowedRoles={['admin', 'coe']}><COE /></PrivateRoute>} />
+              <Route path="/valuation"   element={<PrivateRoute allowedRoles={['admin', 'coe']}><Valuation /></PrivateRoute>} />
+              <Route path="/certificates" element={<PrivateRoute><Certificates /></PrivateRoute>} />
+              <Route path="/coe-reports" element={<PrivateRoute allowedRoles={['coe', 'admin']}><COEReports /></PrivateRoute>} />
+              <Route path="/analytics"   element={<PrivateRoute allowedRoles={['admin', 'coe']}><Analytics /></PrivateRoute>} />
 
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-          </MasterProvider>
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+            </MasterProvider>
+          </ToastProvider>
         </AuthProvider>
       </ErrorBoundary>
     </BrowserRouter>

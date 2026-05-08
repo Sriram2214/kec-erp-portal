@@ -2,10 +2,11 @@ from flask import jsonify, request, send_file
 from flask_login import login_required, current_user
 from app.api import api
 from app.models import (Student, Course, ExamSchedule, Attendance, CourseRegistration, Curriculum,
-                        AcademicYear, DummySticker, FoilMark, FeeClearance)
+                        AcademicYear, DummySticker, FoilMark, FeeClearance, Department, 
+                        Degree, Batch, Regulation)
 from app import db, limiter
 from app.utils.logger import audit_log
-import datetime
+import datetime as dt
 import os
 import io
 import math
@@ -23,11 +24,15 @@ from reportlab.platypus import (SimpleDocTemplate, Table, TableStyle,
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from reportlab.pdfgen import canvas
+from reportlab.lib import colors
 
 # ── Constants & Helpers ──────────────────────────────────────────────
 NAVY       = colors.HexColor('#1a2a5e')
 GOLD       = colors.HexColor('#c9a227')
 RED        = colors.HexColor('#dc2626')
+WHITE      = colors.white
+BLACK      = colors.black
+
 # Resolve paths relative to this file's location (app/api/) → go up 2 dirs to project root
 from app.utils.pdf import get_institutional_header, HEADER_IMG, LOGO_PATH
 
@@ -92,12 +97,11 @@ def ese_students(course_code=None):
         for ds in DummySticker.query.filter_by(exam_schedule_id=schedule.id).all():
             stickers[ds.student_id] = ds.dummy_number
 
-    # ── Strict CourseRegistration Query with Curriculum Safety ──
-    regs = CourseRegistration.query.filter_by(course_id=course.id).all()
-    reg_ids = [r.student_id for r in regs]
-    students = Student.query.filter(
-        Student.id.in_(reg_ids),
-        Student.department == course.curriculum.department.code,
+    # ── High-Performance Join Query ──────────────────────────────────
+    students = db.session.query(Student).join(
+        CourseRegistration, Student.id == CourseRegistration.student_id
+    ).filter(
+        CourseRegistration.course_id == course.id,
         Student.batch == course.curriculum.batch.label,
         Student.regulation == course.curriculum.regulation.name
     ).order_by(Student.register_number).all()
@@ -107,15 +111,18 @@ def ese_students(course_code=None):
     if schedule:
         to_generate = [s for s in students if s.id not in stickers]
         if to_generate:
-            used_dummy_nos = set(stickers.values())
-            # Also fetch other dummy nos for THIS schedule just in case (though stickers should have them)
+            # Absolute Uniqueness: Fetch all dummy numbers used in the current academic cycle
+            # To keep it fast, we can just check the current session/year prefix
+            year_prefix = str(dt.datetime.now().year % 100) # e.g. '26'
+            used_dummy_nos = {d[0] for d in db.session.query(DummySticker.dummy_number).filter(DummySticker.dummy_number.like(f"{year_prefix}%")).all()}
             
             new_stickers = []
             for s in to_generate:
-                dept_prefix = (s.department or 'GEN')[:3].upper()
+                # Use first 3 chars of dept or 'GEN'
+                dept_prefix = "".join(filter(str.isalnum, (s.department or 'GEN')))[:3].upper()
                 while True:
                     rand_part = ''.join(random.choices(string.digits, k=5))
-                    dummy_no = f"24{dept_prefix}{rand_part}"
+                    dummy_no = f"{year_prefix}{dept_prefix}{rand_part}"
                     if dummy_no not in used_dummy_nos:
                         used_dummy_nos.add(dummy_no)
                         break
@@ -124,14 +131,18 @@ def ese_students(course_code=None):
                     student_id=s.id,
                     exam_schedule_id=schedule.id,
                     dummy_number=dummy_no,
-                    foil_number=str(random.randint(1000, 9999))
+                    foil_number=str(random.randint(10000, 99999)) # 5 digit foil for safety
                 )
                 new_stickers.append(ds_obj)
-                stickers[s.id] = dummy_no # Update local map
+                stickers[s.id] = dummy_no 
             
             if new_stickers:
-                db.session.bulk_save_objects(new_stickers)
-                db.session.commit()
+                try:
+                    db.session.bulk_save_objects(new_stickers)
+                    db.session.commit()
+                except Exception as e:
+                    db.session.rollback()
+                    logging.error(f"DUMMY GEN ERROR: {e}")
 
     return jsonify({
         'course_id':    course.id,
@@ -215,11 +226,15 @@ def save_ese_attendance():
             to_add.append(Attendance(student_id=sid, exam_schedule_id=schedule.id, status=status))
         saved += 1
 
-    if to_add:
-        db.session.bulk_save_objects(to_add)
-    
-    db.session.commit()
-    audit_log.log('SAVE_ESE_ATTENDANCE', {'course': code, 'count': saved, 'by': current_user.username})
+    try:
+        if to_add:
+            db.session.bulk_save_objects(to_add)
+        
+        db.session.commit()
+        audit_log.log('SAVE_ESE_ATTENDANCE', {'course': code, 'count': saved, 'by': current_user.username})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'message': f'Save failed: {str(e)}'}), 500
 
     absent_count = sum(1 for e in entries if e.get('status') == 'Absent')
     mp_count     = sum(1 for e in entries if e.get('status') == 'Malpractice')
@@ -251,15 +266,17 @@ def ese_attendance_pdf():
         for att in Attendance.query.filter_by(exam_schedule_id=schedule.id).all():
             existing[att.student_id] = att.status
 
-    # ── Strict CourseRegistration Query with Curriculum Safety ──
+    # ── Relaxed CourseRegistration Query with Curriculum Safety ──
     regs = CourseRegistration.query.filter_by(course_id=course.id).all()
     reg_ids = [r.student_id for r in regs]
+    # RELAXED: Match with UI logic (Batch + Regulation)
     students = Student.query.filter(
         Student.id.in_(reg_ids),
-        Student.department == course.curriculum.department.code,
         Student.batch == course.curriculum.batch.label,
         Student.regulation == course.curriculum.regulation.name
     ).order_by(Student.register_number).all()
+    
+    dept_filter = request.args.get('dept_filter') # Define missing variable from request args
     print(f"[ATT PDF] Course: {course.course_code} (ID: {course.id}) | Regs: {len(reg_ids)} | PDF Students: {len(students)}")
 
     buf = io.BytesIO()
@@ -413,12 +430,12 @@ def ese_cover_sheet_pdf():
         for att in Attendance.query.filter_by(exam_schedule_id=schedule.id).all():
             existing[att.student_id] = att.status
 
-    # ── Strict CourseRegistration Query with Curriculum Safety ──
+    # ── Relaxed CourseRegistration Query with Curriculum Safety ──
     regs = CourseRegistration.query.filter_by(course_id=course.id).all()
     reg_ids = [r.student_id for r in regs]
+    # RELAXED: Match with UI logic (Batch + Regulation)
     all_students = Student.query.filter(
         Student.id.in_(reg_ids),
-        Student.department == course.curriculum.department.code,
         Student.batch == course.curriculum.batch.label,
         Student.regulation == course.curriculum.regulation.name
     ).order_by(Student.register_number).all()
@@ -508,12 +525,12 @@ def ese_despatch_pdf():
     att_records = Attendance.query.filter_by(exam_schedule_id=schedule.id).all() if schedule else []
     existing = {att.student_id: att.status for att in att_records}
 
-    # ── Strict CourseRegistration Query with Curriculum Safety ──
+    # ── Relaxed CourseRegistration Query with Curriculum Safety ──
     regs = CourseRegistration.query.filter_by(course_id=course.id).all()
     reg_ids = [r.student_id for r in regs]
+    # RELAXED: Match with UI logic (Batch + Regulation)
     all_students = Student.query.filter(
         Student.id.in_(reg_ids),
-        Student.department == course.curriculum.department.code,
         Student.batch == course.curriculum.batch.label,
         Student.regulation == course.curriculum.regulation.name
     ).order_by(Student.register_number).all()
@@ -719,9 +736,9 @@ def ese_sticker_pdf():
     # ── Strict CourseRegistration Query with Curriculum Safety ──
     regs = CourseRegistration.query.filter_by(course_id=course.id).all()
     reg_ids = [r.student_id for r in regs]
+    # RELAXED: Match with UI logic (Batch + Regulation)
     base_students = Student.query.filter(
         Student.id.in_(reg_ids),
-        Student.department == course.curriculum.department.code,
         Student.batch == course.curriculum.batch.label,
         Student.regulation == course.curriculum.regulation.name
     ).all()

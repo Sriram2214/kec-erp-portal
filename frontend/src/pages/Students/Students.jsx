@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import api from '../../api/index'
 import { X, Ticket, CheckCircle, Megaphone, ChevronUp, ChevronDown } from 'lucide-react'
+import { TableSkeleton } from '../../components/Skeleton/Skeleton'
 import './Students.css'
 
 const YEARS = [1,2,3,4]
@@ -376,7 +377,7 @@ export default function Students() {
 
       {/* ── Sections ── */}
       {loading ? (
-        <div className="loading-row">Loading…</div>
+        <TableSkeleton rows={8} cols={6} />
       ) : (filterDept ? (
         <DeptSection dept={filterDept} students={byDept[filterDept] || []} onDelete={handleDelete} onToggleResult={toggleResult} />
       ) : (

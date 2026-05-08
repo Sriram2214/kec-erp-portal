@@ -296,13 +296,10 @@ export default function Attendance() {
                 })}
               </select>
             ) : (
-              <button 
-                className="btn btn-outline" 
-                style={{ width: '100%', height: '45px', borderStyle: 'dashed' }}
-                onClick={handleRefreshCourses}
-              >
-                Synchronizing Courses...
-              </button>
+              <div className="ese-sync-box" onClick={handleRefreshCourses}>
+                <div className="ese-spinner-small" />
+                <span>Synchronizing Institutional Courses...</span>
+              </div>
             )}
           </div>
 

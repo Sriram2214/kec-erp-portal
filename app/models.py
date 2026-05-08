@@ -104,6 +104,9 @@ class Faculty(db.Model):
     email       = db.Column(db.String(120))
     phone       = db.Column(db.String(15))
 
+    def __init__(self, **kwargs):
+        super(Faculty, self).__init__(**kwargs)
+
 # ─────────────────────────────────────────────
 # Courses & Curriculum
 # ─────────────────────────────────────────────
@@ -183,9 +186,9 @@ class ClassTimetable(db.Model):
 class ClassAttendance(db.Model):
     """Day-wise class attendance entry"""
     id               = db.Column(db.Integer, primary_key=True)
-    student_id       = db.Column(db.Integer, db.ForeignKey('student.id'), nullable=False)
-    course_id        = db.Column(db.Integer, db.ForeignKey('course.id'), nullable=False)
-    date             = db.Column(db.Date, nullable=False)
+    student_id       = db.Column(db.Integer, db.ForeignKey('student.id'), index=True, nullable=False)
+    course_id        = db.Column(db.Integer, db.ForeignKey('course.id'), index=True, nullable=False)
+    date             = db.Column(db.Date, index=True, nullable=False)
     session          = db.Column(db.String(5), default='FN')   # FN / AN
     status           = db.Column(db.String(10), default='P')   # P / A / OD
     academic_year_id = db.Column(db.Integer, db.ForeignKey('academic_year.id'))
@@ -201,8 +204,8 @@ class ClassAttendance(db.Model):
 # ─────────────────────────────────────────────
 class InternalMarks(db.Model):
     id               = db.Column(db.Integer, primary_key=True)
-    student_id       = db.Column(db.Integer, db.ForeignKey('student.id'), nullable=False)
-    course_id        = db.Column(db.Integer, db.ForeignKey('course.id'), nullable=False)
+    student_id       = db.Column(db.Integer, db.ForeignKey('student.id'), index=True, nullable=False)
+    course_id        = db.Column(db.Integer, db.ForeignKey('course.id'), index=True, nullable=False)
     ia1              = db.Column(db.Float, default=0)
     ia2              = db.Column(db.Float, default=0)
     ia3              = db.Column(db.Float, default=0)
@@ -221,7 +224,7 @@ class InternalMarks(db.Model):
 # ─────────────────────────────────────────────
 class ExamSchedule(db.Model):
     id               = db.Column(db.Integer, primary_key=True)
-    course_id        = db.Column(db.Integer, db.ForeignKey('course.id'), nullable=False)
+    course_id        = db.Column(db.Integer, db.ForeignKey('course.id'), index=True, nullable=False)
     exam_date        = db.Column(db.Date, index=True, nullable=False)
     session          = db.Column(db.String(5), nullable=False)   # FN / AN
     academic_year_id = db.Column(db.Integer, db.ForeignKey('academic_year.id'))
@@ -230,11 +233,14 @@ class ExamSchedule(db.Model):
     course       = db.relationship('Course', backref=db.backref('schedules', lazy=True))
     academic_year = db.relationship('AcademicYear')
 
+    def __init__(self, **kwargs):
+        super(ExamSchedule, self).__init__(**kwargs)
+
 class CourseRegistration(db.Model):
     """Student-wise course registration — current + backlogs"""
     id               = db.Column(db.Integer, primary_key=True)
-    student_id       = db.Column(db.Integer, db.ForeignKey('student.id'), nullable=False)
-    course_id        = db.Column(db.Integer, db.ForeignKey('course.id'), nullable=False)
+    student_id       = db.Column(db.Integer, db.ForeignKey('student.id'), index=True, nullable=False)
+    course_id        = db.Column(db.Integer, db.ForeignKey('course.id'), index=True, nullable=False)
     academic_year_id = db.Column(db.Integer, db.ForeignKey('academic_year.id'))
     is_backlog       = db.Column(db.Boolean, default=False)
     registered_on    = db.Column(db.DateTime, default=datetime.utcnow)
@@ -261,6 +267,9 @@ class FeeClearance(db.Model):
 
     student = db.relationship('Student', backref=db.backref('fee_clearance', lazy=True))
 
+    def __init__(self, **kwargs):
+        super(FeeClearance, self).__init__(**kwargs)
+
 class HallTicket(db.Model):
     id               = db.Column(db.Integer, primary_key=True)
     student_id       = db.Column(db.Integer, db.ForeignKey('student.id'), nullable=False)
@@ -270,6 +279,9 @@ class HallTicket(db.Model):
 
     student = db.relationship('Student', backref=db.backref('hall_tickets', lazy=True))
 
+    def __init__(self, **kwargs):
+        super(HallTicket, self).__init__(**kwargs)
+
 
 
 class Attendance(db.Model):
@@ -277,32 +289,41 @@ class Attendance(db.Model):
     __table_args__ = (UniqueConstraint('student_id', 'exam_schedule_id', name='_student_exam_uc'),)
     id               = db.Column(db.Integer, primary_key=True)
     student_id       = db.Column(db.Integer, db.ForeignKey('student.id'), index=True, nullable=False)
-    exam_schedule_id = db.Column(db.Integer, db.ForeignKey('exam_schedule.id'), nullable=False)
+    exam_schedule_id = db.Column(db.Integer, db.ForeignKey('exam_schedule.id'), index=True, nullable=False)
     status           = db.Column(db.String(20), index=True, default='Present')  # Present / Absent / Malpractice
 
     student      = db.relationship('Student',      backref=db.backref('attendances', lazy=True))
     exam_schedule = db.relationship('ExamSchedule', backref=db.backref('attendances', lazy=True))
 
+    def __init__(self, **kwargs):
+        super(Attendance, self).__init__(**kwargs)
+
 class DummySticker(db.Model):
     __table_args__ = (db.UniqueConstraint('student_id', 'exam_schedule_id', name='_stu_exam_dummy_uc'),)
     id               = db.Column(db.Integer, primary_key=True)
-    student_id       = db.Column(db.Integer, db.ForeignKey('student.id'), nullable=False)
-    exam_schedule_id = db.Column(db.Integer, db.ForeignKey('exam_schedule.id'), nullable=False)
+    student_id       = db.Column(db.Integer, db.ForeignKey('student.id'), index=True, nullable=False)
+    exam_schedule_id = db.Column(db.Integer, db.ForeignKey('exam_schedule.id'), index=True, nullable=False)
     dummy_number     = db.Column(db.String(50), index=True, nullable=False)
     foil_number      = db.Column(db.String(50), nullable=False)
 
     student       = db.relationship('Student',      backref=db.backref('dummy_stickers', lazy=True))
     exam_schedule = db.relationship('ExamSchedule', backref=db.backref('dummy_stickers', lazy=True))
 
+    def __init__(self, **kwargs):
+        super(DummySticker, self).__init__(**kwargs)
+
 class FoilMark(db.Model):
     """Marks posted against foil/dummy number"""
     __table_args__ = (db.UniqueConstraint('dummy_number', 'course_id', name='_dummy_course_uc'),)
     id           = db.Column(db.Integer, primary_key=True)
-    foil_number  = db.Column(db.String(50), nullable=False)
-    dummy_number = db.Column(db.String(50), nullable=False)
-    course_id    = db.Column(db.Integer, db.ForeignKey('course.id'), nullable=False)
+    foil_number  = db.Column(db.String(50), index=True, nullable=False)
+    dummy_number = db.Column(db.String(50), index=True, nullable=False)
+    course_id    = db.Column(db.Integer, db.ForeignKey('course.id'), index=True, nullable=False)
     marks        = db.Column(db.Float)
     practical    = db.Column(db.Float)
     grade        = db.Column(db.String(5))
 
     course = db.relationship('Course', backref=db.backref('foil_marks', lazy=True))
+
+    def __init__(self, **kwargs):
+        super(FoilMark, self).__init__(**kwargs)

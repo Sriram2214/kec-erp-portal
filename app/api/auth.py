@@ -3,6 +3,7 @@ from flask_login import login_user, logout_user, login_required, current_user
 from app.models import User
 from app import db
 from app.api import api
+import os
 
 @api.route('/login', methods=['POST'])
 def api_login():

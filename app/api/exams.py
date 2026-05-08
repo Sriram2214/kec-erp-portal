@@ -60,6 +60,30 @@ def manage_courses():
     dept_id   = request.args.get('department_id')
     batch_id  = request.args.get('batch_id')
     reg_id    = request.args.get('regulation_id')
+    fields    = request.args.get('fields') # 'minimal_meta' | None
+    
+    if fields == 'minimal_meta':
+        # High-performance query for search/dropdowns with basic curriculum metadata
+        from app.models import Department, Batch, Regulation
+        courses = db.session.query(
+            Course.id, Course.course_code, Course.course_title, Course.semester,
+            Department.code.label('dept'), 
+            Regulation.name.label('reg'), 
+            Batch.label.label('batch')
+        ).join(Curriculum, Course.curriculum_id == Curriculum.id)\
+         .join(Department, Curriculum.department_id == Department.id)\
+         .join(Regulation, Curriculum.regulation_id == Regulation.id)\
+         .join(Batch, Curriculum.batch_id == Batch.id).all()
+        
+        return jsonify([{
+            'id': c.id, 
+            'course_code': c.course_code,
+            'course_title': c.course_title,
+            'semester': c.semester,
+            'department': c.dept,
+            'regulation': c.reg,
+            'batch': c.batch
+        } for c in courses])
 
     query = Course.query.options(
         joinedload(Course.curriculum).joinedload(Curriculum.department),

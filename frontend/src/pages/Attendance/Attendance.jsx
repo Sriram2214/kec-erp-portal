@@ -98,6 +98,7 @@ export default function Attendance() {
     if (!code && !id) return
     setError(''); setLoading(true); setCourseInfo(null); setStudents([]); setCurrentPage(1); setSearchTerm('')
     try {
+      // STRICT: Always prefer course_id to avoid cross-curriculum leakage
       const url = id ? `/ese/students?course_id=${id}` : `/ese/students?course_code=${code}`
       const res = await api.get(url)
       const data = res.data
@@ -170,7 +171,7 @@ export default function Attendance() {
     if (!courseInfo) return
     setPdfLoading(true)
     try {
-      const idParam = courseInfo.course_id ? `course_id=${courseInfo.course_id}` : `course_code=${courseInfo.course_code}`
+      const idParam = `course_id=${courseInfo.course_id}`
       const url = `/ese/attendance-pdf?${idParam}`
       await downloadBlob(url, `Attendance_${courseInfo.course_code}_ALL.pdf`)
     } catch { setError('PDF generation failed.') }
@@ -181,7 +182,7 @@ export default function Attendance() {
     if (!courseInfo) return
     setCoverLoading(true)
     try { 
-      const idParam = courseInfo.course_id ? `course_id=${courseInfo.course_id}` : `course_code=${courseInfo.course_code}`
+      const idParam = `course_id=${courseInfo.course_id}`
       await downloadBlob(`/ese/cover-sheet-pdf?${idParam}`, `ESE_CoverSheet_${courseInfo.course_code}.pdf`) 
     }
     catch { setError('Cover Sheet PDF generation failed.') }
@@ -192,7 +193,7 @@ export default function Attendance() {
     if (!courseInfo) return
     setDespLoading(true)
     try { 
-      const idParam = courseInfo.course_id ? `course_id=${courseInfo.course_id}` : `course_code=${courseInfo.course_code}`
+      const idParam = `course_id=${courseInfo.course_id}`
       await downloadBlob(`/ese/despatch-pdf?${idParam}`, `ESE_Despatch_${courseInfo.course_code}.pdf`) 
     }
     catch { setError('Despatch PDF generation failed.') }

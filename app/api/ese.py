@@ -97,25 +97,25 @@ def ese_students(course_code=None):
         for ds in DummySticker.query.filter_by(exam_schedule_id=schedule.id).all():
             stickers[ds.student_id] = ds.dummy_number
 
-    # ── High-Performance Join Query ──────────────────────────────────
-    students = db.session.query(Student).join(
-        CourseRegistration, Student.id == CourseRegistration.student_id
-    ).filter(
-        CourseRegistration.course_id == course.id,
-        Student.batch == course.curriculum.batch.label,
-        Student.regulation == course.curriculum.regulation.name
-    ).order_by(Student.register_number).all()
-    
-    source = 'course_registration'
-    
-    if not students:
-        # FALLBACK: If no registrations exist, show all students of this batch/dept
-        students = Student.query.filter(
-            Student.batch == course.curriculum.batch.label,
-            Student.regulation == course.curriculum.regulation.name,
-            Student.department == course.curriculum.department.code
-        ).order_by(Student.register_number).all()
-        source = 'fallback_all_batch'
+    # ── STRICT CourseRegistration Query ONLY ──
+    students = (
+        db.session.query(Student)
+        .join(
+            CourseRegistration,
+            CourseRegistration.student_id == Student.id
+        )
+        .filter(
+            CourseRegistration.course_id == course.id
+        )
+        .order_by(Student.register_number)
+        .all()
+    )
+
+    source = 'course_registration_strict'
+
+    print(f"[STRICT FILTER] Course ID: {course.id}")
+    print(f"[STRICT FILTER] Course Code: {course.course_code}")
+    print(f"[STRICT FILTER] Students Loaded: {len(students)}")
 
 @api.route('/ese/auto-enroll', methods=['POST'])
 @login_required
@@ -318,18 +318,18 @@ def ese_attendance_pdf():
         for att in Attendance.query.filter_by(exam_schedule_id=schedule.id).all():
             existing[att.student_id] = att.status
 
-    # ── Relaxed CourseRegistration Query with Curriculum Safety ──
-    regs = CourseRegistration.query.filter_by(course_id=course.id).all()
-    reg_ids = [r.student_id for r in regs]
-    # RELAXED: Match with UI logic (Batch + Regulation)
-    students = Student.query.filter(
-        Student.id.in_(reg_ids),
-        Student.batch == course.curriculum.batch.label,
-        Student.regulation == course.curriculum.regulation.name
-    ).order_by(Student.register_number).all()
+    # ── STRICT CourseRegistration Query ──
+    students = (
+        db.session.query(Student)
+        .join(CourseRegistration, CourseRegistration.student_id == Student.id)
+        .filter(CourseRegistration.course_id == course.id)
+        .order_by(Student.register_number)
+        .all()
+    )
     
-    dept_filter = request.args.get('dept_filter') # Define missing variable from request args
-    print(f"[ATT PDF] Course: {course.course_code} (ID: {course.id}) | Regs: {len(reg_ids)} | PDF Students: {len(students)}")
+    print(f"[ATT PDF] Loaded Students: {len(students)}")
+    print(f"[ATT PDF] Course ID: {course.id}")
+    print(f"[ATT PDF] Course Code: {course.course_code}")
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(
@@ -482,15 +482,14 @@ def ese_cover_sheet_pdf():
         for att in Attendance.query.filter_by(exam_schedule_id=schedule.id).all():
             existing[att.student_id] = att.status
 
-    # ── Relaxed CourseRegistration Query with Curriculum Safety ──
-    regs = CourseRegistration.query.filter_by(course_id=course.id).all()
-    reg_ids = [r.student_id for r in regs]
-    # RELAXED: Match with UI logic (Batch + Regulation)
-    all_students = Student.query.filter(
-        Student.id.in_(reg_ids),
-        Student.batch == course.curriculum.batch.label,
-        Student.regulation == course.curriculum.regulation.name
-    ).order_by(Student.register_number).all()
+    # ── STRICT CourseRegistration Query ──
+    all_students = (
+        db.session.query(Student)
+        .join(CourseRegistration, CourseRegistration.student_id == Student.id)
+        .filter(CourseRegistration.course_id == course.id)
+        .order_by(Student.register_number)
+        .all()
+    )
 
     present_students = [s for s in all_students if existing.get(s.id, 'Present') == 'Present']
     total_present = len(present_students)
@@ -577,15 +576,14 @@ def ese_despatch_pdf():
     att_records = Attendance.query.filter_by(exam_schedule_id=schedule.id).all() if schedule else []
     existing = {att.student_id: att.status for att in att_records}
 
-    # ── Relaxed CourseRegistration Query with Curriculum Safety ──
-    regs = CourseRegistration.query.filter_by(course_id=course.id).all()
-    reg_ids = [r.student_id for r in regs]
-    # RELAXED: Match with UI logic (Batch + Regulation)
-    all_students = Student.query.filter(
-        Student.id.in_(reg_ids),
-        Student.batch == course.curriculum.batch.label,
-        Student.regulation == course.curriculum.regulation.name
-    ).order_by(Student.register_number).all()
+    # ── STRICT CourseRegistration Query ──
+    all_students = (
+        db.session.query(Student)
+        .join(CourseRegistration, CourseRegistration.student_id == Student.id)
+        .filter(CourseRegistration.course_id == course.id)
+        .order_by(Student.register_number)
+        .all()
+    )
 
     present_list = [s for s in all_students if existing.get(s.id, 'Present') == 'Present']
     absent_list  = [s for s in all_students if existing.get(s.id) == 'Absent']
@@ -785,15 +783,14 @@ def ese_sticker_pdf():
         present_ids = [att.student_id for att in Attendance.query.filter_by(exam_schedule_id=schedule.id, status='Present').all()]
     stickers = {ds.student_id: ds for ds in DummySticker.query.filter_by(exam_schedule_id=schedule.id).all()}
 
-    # ── Strict CourseRegistration Query with Curriculum Safety ──
-    regs = CourseRegistration.query.filter_by(course_id=course.id).all()
-    reg_ids = [r.student_id for r in regs]
-    # RELAXED: Match with UI logic (Batch + Regulation)
-    base_students = Student.query.filter(
-        Student.id.in_(reg_ids),
-        Student.batch == course.curriculum.batch.label,
-        Student.regulation == course.curriculum.regulation.name
-    ).all()
+    # ── STRICT CourseRegistration Query ──
+    base_students = (
+        db.session.query(Student)
+        .join(CourseRegistration, CourseRegistration.student_id == Student.id)
+        .filter(CourseRegistration.course_id == course.id)
+        .all()
+    )
+    print(f"[STICKER PDF] Loaded Students: {len(base_students)} for Course ID: {course.id}")
     eligible = [s for s in base_students if (present_ids is None or s.id in present_ids) and s.id in stickers]
     if not eligible: return jsonify({'message': 'No eligible students found'}), 404
 

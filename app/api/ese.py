@@ -117,48 +117,6 @@ def ese_students(course_code=None):
     print(f"[STRICT FILTER] Course Code: {course.course_code}")
     print(f"[STRICT FILTER] Students Loaded: {len(students)}")
 
-@api.route('/ese/auto-enroll', methods=['POST'])
-@login_required
-def ese_auto_enroll():
-    if current_user.role not in ['admin', 'coe']:
-        return jsonify({'message': 'Access denied'}), 403
-    
-    data = request.get_json()
-    course_id = data.get('course_id')
-    if not course_id:
-        return jsonify({'message': 'course_id required'}), 400
-    
-    course = Course.query.get_or_404(course_id)
-    curr = course.curriculum
-    
-    # Find all students matching this curriculum (Batch + Dept + Regulation)
-    students = Student.query.filter(
-        Student.batch == curr.batch.label,
-        Student.regulation == curr.regulation.name,
-        Student.department == curr.department.code
-    ).all()
-    
-    if not students:
-        return jsonify({'message': 'No students found matching this curriculum (Batch/Dept mismatch)'}), 404
-        
-    # Check existing registrations
-    existing_sids = {r.student_id for r in CourseRegistration.query.filter_by(course_id=course.id).all()}
-    
-    to_add = []
-    for s in students:
-        if s.id not in existing_sids:
-            to_add.append(CourseRegistration(student_id=s.id, course_id=course.id))
-            
-    if to_add:
-        db.session.bulk_save_objects(to_add)
-        db.session.commit()
-        audit_log.log('AUTO_ENROLL', {'course': course.course_code, 'count': len(to_add)})
-        
-    return jsonify({
-        'message': f'Successfully enrolled {len(to_add)} students.',
-        'enrolled': len(to_add)
-    })
-
     # ── High-Performance Dummy Sticker Generation (Only if missing) ──
     if schedule:
         to_generate = [s for s in students if s.id not in stickers]
@@ -218,6 +176,48 @@ def ese_auto_enroll():
             'status':          existing.get(s.id, 'Present'),
             'dummy_number':    stickers.get(s.id, '—')
         } for s in students]
+    })
+
+@api.route('/ese/auto-enroll', methods=['POST'])
+@login_required
+def ese_auto_enroll():
+    if current_user.role not in ['admin', 'coe']:
+        return jsonify({'message': 'Access denied'}), 403
+    
+    data = request.get_json()
+    course_id = data.get('course_id')
+    if not course_id:
+        return jsonify({'message': 'course_id required'}), 400
+    
+    course = Course.query.get_or_404(course_id)
+    curr = course.curriculum
+    
+    # Find all students matching this curriculum (Batch + Dept + Regulation)
+    students = Student.query.filter(
+        Student.batch == curr.batch.label,
+        Student.regulation == curr.regulation.name,
+        Student.department == curr.department.code
+    ).all()
+    
+    if not students:
+        return jsonify({'message': 'No students found matching this curriculum (Batch/Dept mismatch)'}), 404
+        
+    # Check existing registrations
+    existing_sids = {r.student_id for r in CourseRegistration.query.filter_by(course_id=course.id).all()}
+    
+    to_add = []
+    for s in students:
+        if s.id not in existing_sids:
+            to_add.append(CourseRegistration(student_id=s.id, course_id=course.id))
+            
+    if to_add:
+        db.session.bulk_save_objects(to_add)
+        db.session.commit()
+        audit_log.log('AUTO_ENROLL', {'course': course.course_code, 'count': len(to_add)})
+        
+    return jsonify({
+        'message': f'Successfully enrolled {len(to_add)} students.',
+        'enrolled': len(to_add)
     })
 
 
@@ -374,7 +374,7 @@ def ese_attendance_pdf():
     story.append(HRFlowable(width='100%', thickness=0.5, color=colors.black))
     story.append(Spacer(1, 2*mm))
 
-    dept_name = dept_filter if dept_filter else course.curriculum.department.code
+    dept_name = course.curriculum.department.code
     info_data = [
         [
             Paragraph('<b>Degree &amp; Branch</b> :', label_sty),

@@ -53,6 +53,7 @@ export default function Attendance() {
   const [saving,       setSaving]       = useState(false)
   const [error,        setError]        = useState('')
   const [saved,        setSaved]        = useState(false)
+  const [enrolling,    setEnrolling]    = useState(false)
   const [toasts,       setToasts]       = useState([])
   const [pdfLoading,   setPdfLoading]   = useState(false)
   const [coverLoading, setCoverLoading] = useState(false)
@@ -206,6 +207,20 @@ export default function Attendance() {
     finally { setDespLoading(false) }
   }
 
+  async function handleAutoEnroll() {
+    if (!courseInfo) return
+    setEnrolling(true)
+    try {
+      const res = await api.post('/ese/auto-enroll', { course_id: courseInfo.course_id })
+      showToast(res.data.message, 'success')
+      handleLoad(courseInfo.course_code, courseInfo.course_id)
+    } catch (e) {
+      showToast(e.response?.data?.message || 'Enrollment failed', 'error')
+    } finally {
+      setEnrolling(false)
+    }
+  }
+
   async function handleGenerateDummies() {
     if (!courseInfo) return
     setDummyLoading(true)
@@ -343,9 +358,19 @@ export default function Attendance() {
       {/* ── Course Info (auto-populated) ── */}
       {courseInfo && (
         <div className="card ese-info-card">
-          {courseInfo.source === 'semester_fallback' && (
-            <div style={{ background:'#fffbeb', border:'1px solid #fde68a', borderRadius:8, padding:'0.6rem 1rem', marginBottom:'1rem', fontSize:'0.82rem', color:'#92400e', display:'flex', alignItems:'center', gap:'0.5rem' }}>
-              <Icon.Warning /> No CourseRegistration records found — showing all <strong>Sem {courseInfo.semester}</strong> students across all departments.
+          {(courseInfo.source === 'fallback_all_batch' || courseInfo.source === 'semester_fallback') && (
+            <div style={{ background:'#fffbeb', border:'1px solid #fde68a', borderRadius:8, padding:'0.6rem 1rem', marginBottom:'1rem', fontSize:'0.82rem', color:'#92400e', display:'flex', alignItems:'center', gap:'1rem', justifyContent:'space-between' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:'0.5rem' }}>
+                <Icon.Warning /> No CourseRegistration records found — showing all <strong>Batch {courseInfo.batch}</strong> students for this department.
+              </div>
+              <button 
+                className="btn btn-sm btn-gold" 
+                onClick={handleAutoEnroll} 
+                disabled={enrolling}
+                style={{ height:'28px', fontSize:'0.75rem', padding:'0 1rem' }}
+              >
+                {enrolling ? 'Enrolling...' : 'Agent: Fix Registration Now'}
+              </button>
             </div>
           )}
           {courseInfo.source === 'course_registration' && (

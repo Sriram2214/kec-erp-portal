@@ -48,7 +48,7 @@ def get_courses_by_date():
     if not date_str:
         return jsonify({'message': 'Date required'}), 400
     try:
-        target_date = datetime.datetime.strptime(date_str, '%Y-%m-%d').date()
+        target_date = dt.datetime.strptime(date_str, '%Y-%m-%d').date()
     except:
         return jsonify({'message': 'Invalid date format (YYYY-MM-DD)'}), 400
     
@@ -105,7 +105,59 @@ def ese_students(course_code=None):
         Student.batch == course.curriculum.batch.label,
         Student.regulation == course.curriculum.regulation.name
     ).order_by(Student.register_number).all()
+    
     source = 'course_registration'
+    
+    if not students:
+        # FALLBACK: If no registrations exist, show all students of this batch/dept
+        students = Student.query.filter(
+            Student.batch == course.curriculum.batch.label,
+            Student.regulation == course.curriculum.regulation.name,
+            Student.department == course.curriculum.department.code
+        ).order_by(Student.register_number).all()
+        source = 'fallback_all_batch'
+
+@api.route('/ese/auto-enroll', methods=['POST'])
+@login_required
+def ese_auto_enroll():
+    if current_user.role not in ['admin', 'coe']:
+        return jsonify({'message': 'Access denied'}), 403
+    
+    data = request.get_json()
+    course_id = data.get('course_id')
+    if not course_id:
+        return jsonify({'message': 'course_id required'}), 400
+    
+    course = Course.query.get_or_404(course_id)
+    curr = course.curriculum
+    
+    # Find all students matching this curriculum (Batch + Dept + Regulation)
+    students = Student.query.filter(
+        Student.batch == curr.batch.label,
+        Student.regulation == curr.regulation.name,
+        Student.department == curr.department.code
+    ).all()
+    
+    if not students:
+        return jsonify({'message': 'No students found matching this curriculum (Batch/Dept mismatch)'}), 404
+        
+    # Check existing registrations
+    existing_sids = {r.student_id for r in CourseRegistration.query.filter_by(course_id=course.id).all()}
+    
+    to_add = []
+    for s in students:
+        if s.id not in existing_sids:
+            to_add.append(CourseRegistration(student_id=s.id, course_id=course.id))
+            
+    if to_add:
+        db.session.bulk_save_objects(to_add)
+        db.session.commit()
+        audit_log.log('AUTO_ENROLL', {'course': course.course_code, 'count': len(to_add)})
+        
+    return jsonify({
+        'message': f'Successfully enrolled {len(to_add)} students.',
+        'enrolled': len(to_add)
+    })
 
     # ── High-Performance Dummy Sticker Generation (Only if missing) ──
     if schedule:
@@ -192,9 +244,9 @@ def save_ese_attendance():
         exam_date_str = data.get('exam_date', '')
         session_val   = data.get('session', 'FN')
         try:
-            edate = datetime.datetime.strptime(exam_date_str, '%Y-%m-%d').date() if exam_date_str else datetime.date.today()
+            edate = dt.datetime.strptime(exam_date_str, '%Y-%m-%d').date() if exam_date_str else dt.date.today()
         except Exception:
-            edate = datetime.date.today()
+            edate = dt.date.today()
         ay = AcademicYear.query.filter_by(is_current=True).first()
         schedule = ExamSchedule(
             course_id        = course.id,
@@ -506,7 +558,7 @@ def ese_cover_sheet_pdf():
         if bundle_idx < num_bundles - 1: story.append(PageBreak())
 
     doc.build(story); buf.seek(0)
-    return send_file(buf, as_attachment=True, download_name=f'ESE_CoverSheet_{course.course_code}_{datetime.date.today()}.pdf', mimetype='application/pdf')
+    return send_file(buf, as_attachment=True, download_name=f'ESE_CoverSheet_{course.course_code}_{dt.date.today()}.pdf', mimetype='application/pdf')
 
 @api.route('/ese/despatch-pdf', methods=['GET'])
 @login_required
@@ -672,7 +724,7 @@ def ese_despatch_pdf():
 
     doc.build(story)
     buf.seek(0)
-    filename = f'ESE_Despatch_{course.course_code}_{datetime.date.today()}.pdf'
+    filename = f'ESE_Despatch_{course.course_code}_{dt.date.today()}.pdf'
     return send_file(buf, as_attachment=True, download_name=filename, mimetype='application/pdf')
 
 
@@ -829,7 +881,7 @@ def get_hallticket_pdf():
         
     schedules = ExamSchedule.query.join(Course).join(Curriculum).join(Department).filter(Department.code == student.department, Course.semester == student.semester, ExamSchedule.academic_year_id == ay.id).all()
     if not schedules: return jsonify({'message': 'No exam schedules found'}), 404
-    schedules.sort(key=lambda x: x.exam_date if x.exam_date else datetime.date.max)
+    schedules.sort(key=lambda x: x.exam_date if x.exam_date else dt.date.max)
 
     buf = io.BytesIO()
     def add_page_border(c, doc):
@@ -930,12 +982,12 @@ def session_daywise_report_pdf():
     """Generate a detailed session & day wise exam report PDF"""
     date_str = request.args.get('date', '')
     if not date_str:
-        date_str = datetime.date.today().strftime('%Y-%m-%d')
+        date_str = dt.date.today().strftime('%Y-%m-%d')
     
     try:
-        report_date = datetime.datetime.strptime(date_str, '%Y-%m-%d').date()
+        report_date = dt.datetime.strptime(date_str, '%Y-%m-%d').date()
     except Exception:
-        report_date = datetime.date.today()
+        report_date = dt.date.today()
 
     ay = AcademicYear.query.filter_by(is_current=True).first()
     
@@ -1081,9 +1133,9 @@ def session_daywise_report_pdf():
 @login_required
 def qp_cover_report_pdf():
     """Generate QP Cover report PDF for the COE office"""
-    date_str = request.args.get('date', datetime.date.today().strftime('%Y-%m-%d'))
-    try: report_date = datetime.datetime.strptime(date_str, '%Y-%m-%d').date()
-    except: report_date = datetime.date.today()
+    date_str = request.args.get('date', dt.date.today().strftime('%Y-%m-%d'))
+    try: report_date = dt.datetime.strptime(date_str, '%Y-%m-%d').date()
+    except: report_date = dt.date.today()
 
     ay = AcademicYear.query.filter_by(is_current=True).first()
     schedules = ExamSchedule.query.filter_by(exam_date=report_date).order_by(ExamSchedule.session, ExamSchedule.course_id).all()
@@ -1119,9 +1171,9 @@ def qp_cover_report_pdf():
 @login_required
 def attendance_status_report_pdf():
     """Consolidated Attendance Status for all halls"""
-    date_str = request.args.get('date', datetime.date.today().strftime('%Y-%m-%d'))
-    try: report_date = datetime.datetime.strptime(date_str, '%Y-%m-%d').date()
-    except: report_date = datetime.date.today()
+    date_str = request.args.get('date', dt.date.today().strftime('%Y-%m-%d'))
+    try: report_date = dt.datetime.strptime(date_str, '%Y-%m-%d').date()
+    except: report_date = dt.date.today()
 
     schedules = ExamSchedule.query.filter_by(exam_date=report_date).all()
     
@@ -1159,9 +1211,9 @@ def attendance_status_report_pdf():
 @login_required
 def missing_attendance_report_pdf():
     """Identify halls that haven't submitted attendance yet"""
-    date_str = request.args.get('date', datetime.date.today().strftime('%Y-%m-%d'))
-    try: report_date = datetime.datetime.strptime(date_str, '%Y-%m-%d').date()
-    except: report_date = datetime.date.today()
+    date_str = request.args.get('date', dt.date.today().strftime('%Y-%m-%d'))
+    try: report_date = dt.datetime.strptime(date_str, '%Y-%m-%d').date()
+    except: report_date = dt.date.today()
 
     # Schedules where no attendance records exist
     all_schedules = ExamSchedule.query.filter_by(exam_date=report_date).all()

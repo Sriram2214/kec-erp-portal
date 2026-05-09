@@ -54,7 +54,11 @@ def refactor():
             print("Departments seeded.")
 
         if Batch.query.count() == 0:
-            batches = ['2021-2025', '2022-2026', '2023-2027', '2024-2028', '2025-2029']
+            # UG and PG Batches from image
+            batches = [
+                '2021-2025', '2022-2026', '2023-2027', '2024-2028', '2025-2029', '2026-2030', # UG
+                '2023-2025', '2024-2026', '2025-2027', '2026-2028' # PG
+            ]
             for b in batches:
                 db.session.add(Batch(label=b))
             db.session.commit()
@@ -68,9 +72,22 @@ def refactor():
             print("Regulations seeded.")
 
         if AcademicYear.query.count() == 0:
-            db.session.add(AcademicYear(label='2024-25', semester='EVEN', is_current=True))
+            # Academic Years from image
+            ays = [
+                ('2021-2022', 'ODD'), ('2021-2022', 'EVEN'),
+                ('2022-2023', 'ODD'), ('2022-2023', 'EVEN'),
+                ('2023-2024', 'ODD'), ('2023-2024', 'EVEN'),
+                ('2024-2025', 'ODD', True), ('2024-2025', 'EVEN'),
+                ('2025-2026', 'ODD'), ('2025-2026', 'EVEN'),
+                ('2026-2027', 'ODD'), ('2026-2027', 'EVEN')
+            ]
+            for ay_data in ays:
+                label = ay_data[0]
+                sem = ay_data[1]
+                is_curr = ay_data[2] if len(ay_data) > 2 else False
+                db.session.add(AcademicYear(label=label, semester=sem, is_current=is_curr))
             db.session.commit()
-            print("Academic Year seeded.")
+            print("Academic Years seeded.")
 
 if __name__ == "__main__":
     refactor()

@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { FileText, Download, Filter, FileSpreadsheet, RefreshCcw } from 'lucide-react'
+
 import api from '../../api/index'
 import './Reports.css'
 
@@ -69,7 +71,31 @@ export default function Reports() {
               <div className="field">
                 <label>Batch</label>
                 <select value={filters.batch} onChange={e => setFilters({...filters, batch: e.target.value})}>
-                  {master.batches.map(b => <option key={b.id} value={b.label}>{b.label}</option>)}
+                  <option value="">All</option>
+                  {master.groupedBatches?.ug.length > 0 && (
+                    <>
+                      <option disabled>── UG Batches (4 Years) ──</option>
+                      {master.groupedBatches.ug.map(b => <option key={b.id} value={b.label}>{b.label}</option>)}
+                    </>
+                  )}
+                  {master.groupedBatches?.pg.length > 0 && (
+                    <>
+                      <option disabled>── PG Batches (2 Years) ──</option>
+                      {master.groupedBatches.pg.map(b => <option key={b.id} value={b.label}>{b.label}</option>)}
+                    </>
+                  )}
+                  {master.groupedBatches?.phd.length > 0 && (
+                    <>
+                      <option disabled>── PhD / Research ──</option>
+                      {master.groupedBatches.phd.map(b => <option key={b.id} value={b.label}>{b.label}</option>)}
+                    </>
+                  )}
+                  {master.groupedBatches?.other.length > 0 && (
+                    <>
+                      <option disabled>── Other Batches ──</option>
+                      {master.groupedBatches.other.map(b => <option key={b.id} value={b.label}>{b.label}</option>)}
+                    </>
+                  )}
                 </select>
               </div>
               <div className="field">

@@ -14,6 +14,7 @@ const EMPTY = {
 
 import { useMaster } from '../../context/MasterContext'
 
+
 export default function Students() {
   const [students,   setStudents]   = useState([])
   const { master }                  = useMaster()
@@ -183,7 +184,30 @@ export default function Students() {
                   <label>Batch</label>
                   <select required value={form.batch} onChange={set('batch')}>
                     <option value="">Select Batch</option>
-                    {master.batches?.map(b => <option key={b.id} value={b.label}>{b.label}</option>)}
+                    {master.groupedBatches?.ug.length > 0 && (
+                      <>
+                        <option disabled>── UG Batches (4 Years) ──</option>
+                        {master.groupedBatches.ug.map(b => <option key={b.id} value={b.label}>{b.label}</option>)}
+                      </>
+                    )}
+                    {master.groupedBatches?.pg.length > 0 && (
+                      <>
+                        <option disabled>── PG Batches (2 Years) ──</option>
+                        {master.groupedBatches.pg.map(b => <option key={b.id} value={b.label}>{b.label}</option>)}
+                      </>
+                    )}
+                    {master.groupedBatches?.phd.length > 0 && (
+                      <>
+                        <option disabled>── PhD / Research ──</option>
+                        {master.groupedBatches.phd.map(b => <option key={b.id} value={b.label}>{b.label}</option>)}
+                      </>
+                    )}
+                    {master.groupedBatches?.other.length > 0 && (
+                      <>
+                        <option disabled>── Other Batches ──</option>
+                        {master.groupedBatches.other.map(b => <option key={b.id} value={b.label}>{b.label}</option>)}
+                      </>
+                    )}
                   </select>
                 </div>
                 <div className="field">
@@ -324,7 +348,30 @@ export default function Students() {
             </select>
             <select value={filterBatch} onChange={e => setFilterBatch(e.target.value)}>
               <option value="">All Batches</option>
-              {master.batches.map(b => <option key={b.id} value={b.label}>{b.label}</option>)}
+              {master.groupedBatches?.ug.length > 0 && (
+                <>
+                  <option disabled>── UG Batches (4 Years) ──</option>
+                  {master.groupedBatches.ug.map(b => <option key={b.id} value={b.label}>{b.label}</option>)}
+                </>
+              )}
+              {master.groupedBatches?.pg.length > 0 && (
+                <>
+                  <option disabled>── PG Batches (2 Years) ──</option>
+                  {master.groupedBatches.pg.map(b => <option key={b.id} value={b.label}>{b.label}</option>)}
+                </>
+              )}
+              {master.groupedBatches?.phd.length > 0 && (
+                <>
+                  <option disabled>── PhD / Research ──</option>
+                  {master.groupedBatches.phd.map(b => <option key={b.id} value={b.label}>{b.label}</option>)}
+                </>
+              )}
+              {master.groupedBatches?.other.length > 0 && (
+                <>
+                  <option disabled>── Other Batches ──</option>
+                  {master.groupedBatches.other.map(b => <option key={b.id} value={b.label}>{b.label}</option>)}
+                </>
+              )}
             </select>
             <select value={filterYear} onChange={e => setFilterYear(e.target.value)}>
               <option value="">All Years</option>

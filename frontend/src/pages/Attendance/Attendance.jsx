@@ -98,8 +98,13 @@ export default function Attendance() {
     if (!code && !id) return
     setError(''); setLoading(true); setCourseInfo(null); setStudents([]); setCurrentPage(1); setSearchTerm('')
     try {
-      // STRICT: Always prefer course_id to avoid cross-curriculum leakage
-      const url = id ? `/ese/students?course_id=${id}` : `/ese/students?course_code=${code}`
+      // STRICT: Always require course_id to avoid cross-curriculum leakage
+      if (!id) {
+        setError('Please select a specific curriculum instance.');
+        setLoading(false);
+        return;
+      }
+      const url = `/ese/students?course_id=${id}`
       const res = await api.get(url)
       const data = res.data
       setCourseInfo(data)
@@ -139,7 +144,7 @@ export default function Attendance() {
     setSaving(true); setSaved(false)
     try {
       const res = await api.post('/ese/attendance', {
-        course_code: courseInfo.course_code,
+        course_id: courseInfo.course_id,
         exam_date:   examDate,
         session,
         entries: students.map(s => ({ student_id: s.id, status: s.status })),
@@ -203,7 +208,7 @@ export default function Attendance() {
   async function handleCourierSheet() {
     if (!courseInfo) return
     setDespLoading(true)
-    try { await downloadBlob(`/coe/courier-sheet?course_code=${courseInfo.course_code}`, `Courier_Sheet_${courseInfo.course_code}.pdf`) }
+    try { await downloadBlob(`/coe/courier-sheet?course_id=${courseInfo.course_id}`, `Courier_Sheet_${courseInfo.course_code}.pdf`) }
     catch { setError('Courier Sheet generation failed.') }
     finally { setDespLoading(false) }
   }
@@ -226,7 +231,7 @@ export default function Attendance() {
     if (!courseInfo) return
     setDummyLoading(true)
     try {
-      const res = await api.post('/coe/generate-dummies', { course_code: courseInfo.course_code })
+      const res = await api.post('/coe/generate-dummies', { course_id: courseInfo.course_id })
       setSaved(false)
       alert(res.data.message)
       handleLoad()

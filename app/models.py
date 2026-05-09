@@ -334,7 +334,7 @@ class AuditLog(db.Model):
     action = db.Column(db.String(100)) # e.g. "MARK_ENTRY", "LOGIN_FAIL"
     details = db.Column(db.JSON)
     ip_address = db.Column(db.String(45))
-    timestamp = db.Column(db.DateTime, default=dt.datetime.utcnow)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 
     def __init__(self, **kwargs):
         super(AuditLog, self).__init__(**kwargs)
@@ -346,7 +346,7 @@ class SystemIssue(db.Model):
     message = db.Column(db.Text)
     traceback = db.Column(db.Text, nullable=True)
     is_resolved = db.Column(db.Boolean, default=False)
-    timestamp = db.Column(db.DateTime, default=dt.datetime.utcnow)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 
     def __init__(self, **kwargs):
         super(SystemIssue, self).__init__(**kwargs)

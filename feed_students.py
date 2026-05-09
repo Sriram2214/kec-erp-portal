@@ -15,7 +15,10 @@ def feed_data():
         db.session.commit()
         
         depts = ['AI&DS', 'AIML', 'BME', 'CSE', 'ECE', 'IT', 'MECH', 'CIVIL', 'RAA']
-        batches = ['2021-2025', '2022-2026', '2023-2027', '2024-2028']
+        batches = [
+            '2021-2025', '2022-2026', '2023-2027', '2024-2028', '2025-2029', '2026-2030', # UG
+            '2023-2025', '2024-2026', '2025-2027', '2026-2028' # PG
+        ]
         
         first_names = ['Arun', 'Balaji', 'Karthik', 'Siva', 'Manoj', 'Vijay', 'Ajith', 'Surya', 'Vikram', 'Dhanush', 'Sriram', 'Naveen', 'Praveen', 'Gokul', 'Sanjay', 'Rahul', 'Vignesh', 'Hari', 'Prasanth', 'Mohan', 'Kavya', 'Priya', 'Shruthi', 'Sneha', 'Swathi', 'Divya', 'Ramya', 'Nithya', 'Preethi', 'Ananya', 'Nandhini', 'Meena', 'Aarthi', 'Gowri']
         last_names = ['Kumar', 'Raj', 'Kannan', 'Krishnan', 'Prakash', 'Chandran', 'Murugan', 'Vel', 'Nathan', 'Iyer', 'Reddy', 'G', 'S', 'V', 'K', 'M', 'R', 'A', 'N', 'P']
@@ -23,9 +26,21 @@ def feed_data():
         students = []
         count = 0
         for dept in depts:
-            for b_idx, batch in enumerate(batches):
-                year = 4 - b_idx
+            for batch in batches:
+                # Calculate year based on current academic year (2024)
+                start_year = int(batch[:4])
+                end_year = int(batch[5:])
+                duration = end_year - start_year
+                
+                current_year = 2024
+                year = current_year - start_year + 1
+                
+                # Bounds check
+                if year < 1: year = 1
+                if year > duration: year = duration
+                
                 sem = year * 2
+                degree_type = 'B.E' if duration == 4 else 'M.E'
                 
                 # 55 students per batch per dept = 1980 students total
                 for i in range(1, 56):
@@ -47,7 +62,7 @@ def feed_data():
                     s.batch           = batch
                     s.academic_year   = year
                     s.semester        = sem
-                    s.degree          = 'B.E'
+                    s.degree          = degree_type
                     s.regulation      = 'R2021'
                     s.email           = email
                     s.phone           = phone

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import api from '../../api/index'
+
 import './AcademicOps.css'
 
 export default function AcademicOps() {
@@ -102,7 +103,30 @@ export default function AcademicOps() {
           <div className="filter-bar card">
             <div className="filter-row">
               <select value={selBatch} onChange={e => setSelBatch(e.target.value)}>
-                {master.batches.map(b => <option key={b.id} value={b.label}>{b.label}</option>)}
+                {master.groupedBatches?.ug.length > 0 && (
+                  <>
+                    <option disabled>── UG Batches (4 Years) ──</option>
+                    {master.groupedBatches.ug.map(b => <option key={b.id} value={b.label}>{b.label}</option>)}
+                  </>
+                )}
+                {master.groupedBatches?.pg.length > 0 && (
+                  <>
+                    <option disabled>── PG Batches (2 Years) ──</option>
+                    {master.groupedBatches.pg.map(b => <option key={b.id} value={b.label}>{b.label}</option>)}
+                  </>
+                )}
+                {master.groupedBatches?.phd.length > 0 && (
+                  <>
+                    <option disabled>── PhD / Research ──</option>
+                    {master.groupedBatches.phd.map(b => <option key={b.id} value={b.label}>{b.label}</option>)}
+                  </>
+                )}
+                {master.groupedBatches?.other.length > 0 && (
+                  <>
+                    <option disabled>── Other Batches ──</option>
+                    {master.groupedBatches.other.map(b => <option key={b.id} value={b.label}>{b.label}</option>)}
+                  </>
+                )}
               </select>
               <select value={selSection} onChange={e => setSelSection(e.target.value)}>
                 <option>A</option><option>B</option><option>C</option>

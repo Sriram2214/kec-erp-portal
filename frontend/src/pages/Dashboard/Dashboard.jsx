@@ -143,12 +143,6 @@ export default function Dashboard() {
       </div>
     )
   }
-
-        {/* Removed redundant content cards as per user request */}
-      </div>
-    )
-  }
-
   return (
     <div className="fade-in">
       <div className="page-header">

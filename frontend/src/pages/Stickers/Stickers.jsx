@@ -44,11 +44,11 @@ export default function Stickers() {
   }
 
   /* ── Download Sticker PDF ───────────────────────── */
-  async function handleSticker(code) {
+  async function handleSticker(id, code) {
     setStickerLoading(p => ({ ...p, [code]: true }))
     try {
       const res = await api.get(
-        `/ese/sticker-pdf?course_code=${code}`,
+        `/ese/sticker-pdf?course_id=${id}`,
         { responseType: 'blob' }
       )
       const url  = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }))
@@ -242,7 +242,7 @@ export default function Stickers() {
                       <td style={{ textAlign: 'center' }}>
                         <button
                           className={`btn btn-sm stk-btn ${c.sticker_count === 0 ? 'stk-btn-disabled' : ''}`}
-                          onClick={() => handleSticker(c.course_code)}
+                          onClick={() => handleSticker(c.course_id, c.course_code)}
                           disabled={stickerLoading[c.course_code] || c.sticker_count === 0}
                           title={c.sticker_count === 0 ? 'Upload dummy numbers first' : 'Generate Sticker PDF'}
                         >

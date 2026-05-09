@@ -184,3 +184,10 @@ tbody tr:hover {
   border: 1px solid #fbbf24;
   box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
+
+/* Batch Group Headers */
+select option:disabled {
+    color: #64748b;
+    font-weight: bold;
+    background: #f3f4f6;
+}

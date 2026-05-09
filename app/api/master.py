@@ -133,15 +133,23 @@ def get_all_master():
         ]
     if not batches:
         batches = [
-            {'id': 1, 'label': '2021-2025'},
-            {'id': 2, 'label': '2022-2026'},
-            {'id': 3, 'label': '2023-2027'},
-            {'id': 4, 'label': '2024-2028'}
+            {'id': 1, 'label': '2021-2025'}, {'id': 2, 'label': '2022-2026'},
+            {'id': 3, 'label': '2023-2027'}, {'id': 4, 'label': '2024-2028'},
+            {'id': 5, 'label': '2025-2029'}, {'id': 6, 'label': '2026-2030'},
+            {'id': 7, 'label': '2023-2025'}, {'id': 8, 'label': '2024-2026'},
+            {'id': 9, 'label': '2025-2027'}, {'id': 10, 'label': '2026-2028'}
         ]
     if not regs:
         regs = [{'id': 1, 'name': 'R2021'}, {'id': 2, 'name': 'R2019'}]
     if not ays:
-        ays = [{'id': 1, 'label': '2023-24', 'semester': 'ODD', 'is_current': True}]
+        ays = [
+            {'id': 1, 'label': '2021-2022', 'semester': 'ODD', 'is_current': False},
+            {'id': 2, 'label': '2022-2023', 'semester': 'ODD', 'is_current': False},
+            {'id': 3, 'label': '2023-2024', 'semester': 'ODD', 'is_current': False},
+            {'id': 4, 'label': '2024-2025', 'semester': 'ODD', 'is_current': True},
+            {'id': 5, 'label': '2025-2026', 'semester': 'ODD', 'is_current': False},
+            {'id': 6, 'label': '2026-2027', 'semester': 'ODD', 'is_current': False}
+        ]
 
     return jsonify({
         'departments': depts,

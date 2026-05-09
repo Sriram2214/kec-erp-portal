@@ -1,6 +1,6 @@
 from flask import jsonify, request, send_file
 from flask_login import login_required, current_user
-from app.models import ExamSchedule, Attendance, Course, Student, CourseAllocation, AcademicYear, DummySticker, User
+from app.models import ExamSchedule, Attendance, Course, Student, CourseRegistration, CourseAllocation, AcademicYear, DummySticker, User
 from app import db
 from app.api import api
 import datetime as dt
@@ -181,18 +181,18 @@ def generate_dummies():
     data = request.get_json()
     batch = data.get('batch')
     semester = data.get('semester')
-    course_code = data.get('course_code')
+    course_id = data.get('course_id')
 
-    if not (batch and semester) and not course_code:
+    if not (batch and semester) and not course_id:
         return jsonify({'message': 'Required fields missing'}), 400
 
     # Find students
     query = Student.query
-    if course_code:
-        course = Course.query.filter_by(course_code=course_code).first()
+    if course_id:
+        course = Course.query.get(course_id)
         if not course: return jsonify({'message': 'Course not found'}), 404
-        # For simplicity, if course_code provided, we generate for all students in that semester
-        query = query.filter_by(semester=course.semester)
+        # ── STRICT CourseRegistration Query ──
+        query = query.join(CourseRegistration).filter(CourseRegistration.course_id == course.id)
         schedule = ExamSchedule.query.filter_by(course_id=course.id).first()
     else:
         query = query.filter_by(batch=batch, semester=semester)
@@ -259,17 +259,33 @@ def courier_sheet():
     from app.utils.pdf import get_institutional_header
     import io, datetime, os
 
-    course_code = request.args.get('course_code', '').strip().upper()
-    course = Course.query.filter_by(course_code=course_code).first()
+    course_id = request.args.get('course_id')
+    if not course_id: return jsonify({'message': 'course_id is REQUIRED'}), 400
+    course = Course.query.get(course_id)
     if not course: return jsonify({'message': 'Course not found'}), 404
 
     schedule = ExamSchedule.query.filter_by(course_id=course.id).first()
     ay = AcademicYear.query.filter_by(is_current=True).first()
 
-    # Get stats
-    present_count = Attendance.query.filter_by(exam_schedule_id=schedule.id, status='Present').count() if schedule else 0
-    absent_count = Attendance.query.filter_by(exam_schedule_id=schedule.id, status='Absent').count() if schedule else 0
-    total_count = present_count + absent_count
+    # ── STRICT CourseRegistration Query ──
+    all_students = (
+        db.session.query(Student)
+        .join(CourseRegistration, CourseRegistration.student_id == Student.id)
+        .filter(CourseRegistration.course_id == course.id)
+        .order_by(Student.register_number)
+        .all()
+    )
+    
+    total_count = len(all_students)
+    present_count = 0
+    absent_count = 0
+    
+    if schedule:
+        existing = {att.student_id: att.status for att in Attendance.query.filter_by(exam_schedule_id=schedule.id).all()}
+        for s in all_students:
+            status = existing.get(s.id, 'Present')
+            if status == 'Present': present_count += 1
+            elif status == 'Absent': absent_count += 1
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=20*mm, rightMargin=20*mm, topMargin=20*mm, bottomMargin=20*mm)
@@ -349,4 +365,4 @@ def courier_sheet():
     
     doc.build(story)
     buf.seek(0)
-    return send_file(buf, as_attachment=True, download_name=f"Courier_Sheet_{course_code}.pdf", mimetype='application/pdf')
+    return send_file(buf, as_attachment=True, download_name=f"Courier_Sheet_{course.course_code}.pdf", mimetype='application/pdf')

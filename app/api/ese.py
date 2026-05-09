@@ -59,6 +59,7 @@ def get_courses_by_date():
         sticker_count = DummySticker.query.filter_by(exam_schedule_id=s.id).count()
         results.append({
             'schedule_id': s.id,
+            'course_id': s.course.id,
             'course_code': s.course.course_code,
             'course_title': s.course.course_title,
             'session': s.session,
@@ -71,23 +72,28 @@ def get_courses_by_date():
 # ── GET /api/ese/students?course_code=XXX
 # ── GET /api/exam-attendance/<course_code>  (alias)
 @api.route('/ese/students', methods=['GET'])
-@api.route('/exam-attendance/<path:course_code>', methods=['GET'])
+@api.route('/exam-attendance/<path:dummy>', methods=['GET'])
 @login_required
-def ese_students(course_code=None):
+def ese_students(dummy=None):
     course_id = request.args.get('course_id')
-    if course_id:
-        course = Course.query.get_or_404(course_id)
-    else:
-        code = (course_code or request.args.get('course_code', '')).strip().upper()
-        if not code:
-            return jsonify({'message': 'course_code or course_id required'}), 400
-
-        from sqlalchemy.orm import joinedload
-        course = Course.query.options(joinedload(Course.curriculum).joinedload(Curriculum.department)).filter(Course.course_code.ilike(code)).first()
-        if not course:
-            return jsonify({'message': f'Course "{code}" not found'}), 404
-
+    if not course_id:
+        return jsonify({'message': 'course_id is MANDATORY'}), 400
+    
+    course = Course.query.get_or_404(course_id)
     schedule = ExamSchedule.query.filter_by(course_id=course.id).first()
+
+    print("=" * 80)
+    print("[DEBUG] PDF/API ROUTE STARTED: ese_students")
+    print(f"[DEBUG] course_id param = {course_id}")
+    print(f"[DEBUG] course_code param = {request.args.get('course_code')}")
+    print(f"[DEBUG] Resolved Course ID = {course.id}")
+    print(f"[DEBUG] Resolved Course Code = {course.course_code}")
+    print(f"[DEBUG] Curriculum ID = {course.curriculum_id}")
+    print(f"[DEBUG] Department = {course.curriculum.department.code}")
+    print(f"[DEBUG] Regulation = {course.curriculum.regulation.name}")
+    print(f"[DEBUG] Batch = {course.curriculum.batch.label}")
+    print("=" * 80)
+
     # ── Load existing attendance and stickers ──
     existing = {}
     stickers = {}
@@ -111,11 +117,18 @@ def ese_students(course_code=None):
         .all()
     )
 
-    source = 'course_registration_strict'
+    print(f"[DEBUG] Students Loaded = {len(students)}")
+    for s in students[:20]:
+        print(
+            f"[DEBUG STUDENT] "
+            f"{s.register_number} | "
+            f"{s.department} | "
+            f"{s.batch} | "
+            f"{s.regulation}"
+        )
+    print("=" * 80)
 
-    print(f"[STRICT FILTER] Course ID: {course.id}")
-    print(f"[STRICT FILTER] Course Code: {course.course_code}")
-    print(f"[STRICT FILTER] Students Loaded: {len(students)}")
+    source = 'course_registration_strict'
 
     # ── High-Performance Dummy Sticker Generation (Only if missing) ──
     if schedule:
@@ -226,17 +239,15 @@ def ese_auto_enroll():
 @login_required
 def save_ese_attendance():
     data = request.get_json()
-    code    = data.get('course_code', '').strip().upper()
-    entries = data.get('entries', [])
+    course_id = data.get('course_id')
+    entries   = data.get('entries', [])
 
-    if not code:
-        return jsonify({'message': 'course_code required'}), 400
+    if not course_id:
+        return jsonify({'message': 'course_id required'}), 400
     if not entries:
         return jsonify({'message': 'No attendance entries provided'}), 400
 
-    course = Course.query.filter(Course.course_code.ilike(code)).first()
-    if not course:
-        return jsonify({'message': f'Course "{code}" not found'}), 404
+    course = Course.query.get_or_404(course_id)
 
     # ── Find or auto-create exam schedule ────────────────────────────
     schedule = ExamSchedule.query.filter_by(course_id=course.id).first()
@@ -283,7 +294,7 @@ def save_ese_attendance():
             db.session.bulk_save_objects(to_add)
         
         db.session.commit()
-        audit_log.log('SAVE_ESE_ATTENDANCE', {'course': code, 'count': saved, 'by': current_user.username})
+        audit_log.log('SAVE_ESE_ATTENDANCE', {'course': course.course_code, 'count': saved, 'by': current_user.username})
     except Exception as e:
         db.session.rollback()
         return jsonify({'message': f'Save failed: {str(e)}'}), 500
@@ -302,14 +313,22 @@ def save_ese_attendance():
 @login_required
 def ese_attendance_pdf():
     course_id = request.args.get('course_id')
-    if course_id:
-        course = Course.query.get_or_404(course_id)
-    else:
-        code = request.args.get('course_code', '').strip().upper()
-        potential_courses = Course.query.filter(Course.course_code.ilike(code)).all()
-        course = next((pc for pc in potential_courses if CourseRegistration.query.filter_by(course_id=pc.id).first()), None)
-        if not course and potential_courses: course = potential_courses[0]
-        if not course: return jsonify({'message': 'Course not found'}), 404
+    if not course_id:
+        return jsonify({'message': 'course_id is MANDATORY for PDF generation'}), 400
+    
+    course = Course.query.get_or_404(course_id)
+
+    print("=" * 80)
+    print("[DEBUG] PDF/API ROUTE STARTED: ese_attendance_pdf")
+    print(f"[DEBUG] course_id param = {course_id}")
+    print(f"[DEBUG] course_code param = {request.args.get('course_code')}")
+    print(f"[DEBUG] Resolved Course ID = {course.id}")
+    print(f"[DEBUG] Resolved Course Code = {course.course_code}")
+    print(f"[DEBUG] Curriculum ID = {course.curriculum_id}")
+    print(f"[DEBUG] Department = {course.curriculum.department.code}")
+    print(f"[DEBUG] Regulation = {course.curriculum.regulation.name}")
+    print(f"[DEBUG] Batch = {course.curriculum.batch.label}")
+    print("=" * 80)
 
     schedule = ExamSchedule.query.filter_by(course_id=course.id).first()
     ay = AcademicYear.query.filter_by(is_current=True).first()
@@ -327,9 +346,16 @@ def ese_attendance_pdf():
         .all()
     )
     
-    print(f"[ATT PDF] Loaded Students: {len(students)}")
-    print(f"[ATT PDF] Course ID: {course.id}")
-    print(f"[ATT PDF] Course Code: {course.course_code}")
+    print(f"[DEBUG] Students Loaded = {len(students)}")
+    for s in students[:20]:
+        print(
+            f"[DEBUG STUDENT] "
+            f"{s.register_number} | "
+            f"{s.department} | "
+            f"{s.batch} | "
+            f"{s.regulation}"
+        )
+    print("=" * 80)
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(
@@ -413,21 +439,28 @@ def ese_attendance_pdf():
 
     # ── High-Performance Table Build ──
     table_data = [header_row]
-    # Reuse a single template for the booklet boxes data to save memory
-    booklet_data = [[''] * 10]
     booklet_col_w = (page_w * 0.25) / 10.5
     
     for i, s in enumerate(students, 1):
         status = existing.get(s.id, 'Present')
         ab_mark = ''
         if status == 'Absent':
-            ab_mark = Paragraph('<b>AB</b>', sty(f'AB{i}', fontName='Helvetica-Bold', fontSize=9, textColor=RED, alignment=TA_CENTER))
+            ab_mark = Paragraph(
+                '<b>AB</b>',
+                sty(f'AB{i}', fontName='Helvetica-Bold', fontSize=9, textColor=RED, alignment=TA_CENTER)
+            )
         elif status == 'Malpractice':
-            ab_mark = Paragraph('<b>MP</b>', sty(f'MP{i}', fontName='Helvetica-Bold', fontSize=9, textColor=RED, alignment=TA_CENTER))
+            ab_mark = Paragraph(
+                '<b>MP</b>',
+                sty(f'MP{i}', fontName='Helvetica-Bold', fontSize=9, textColor=RED, alignment=TA_CENTER)
+            )
         
-        # We still use a small table for the boxes, but we optimize its creation
-        boxes = Table(booklet_data, colWidths=[booklet_col_w]*10)
-        boxes.setStyle(TableStyle([
+        # CREATE BRAND NEW BOX TABLE EVERY ROW to avoid ReportLab memory reuse artifacts
+        booklet_boxes = Table(
+            [[''] * 10],
+            colWidths=[booklet_col_w] * 10
+        )
+        booklet_boxes.setStyle(TableStyle([
             ('GRID', (0,0), (-1,-1), 0.5, colors.black),
             ('BOTTOMPADDING', (0,0), (-1,-1), 1),
             ('TOPPADDING', (0,0), (-1,-1), 1),
@@ -439,10 +472,12 @@ def ese_attendance_pdf():
             Paragraph(str(i), sty(f'SN{i}', fontName='Helvetica', fontSize=8, alignment=TA_CENTER)),
             Paragraph(s.register_number, sty(f'RN{i}', fontName='Helvetica', fontSize=8, alignment=TA_CENTER)),
             Paragraph(s.name, sty(f'NM{i}', fontName='Helvetica', fontSize=8)),
-            boxes,
+            booklet_boxes,
             ab_mark,
             '',
         ])
+
+    print(f"[FINAL PDF ROW COUNT] {len(table_data)-1}")
 
     att_table = Table(table_data, colWidths=col_widths, repeatRows=1)
     att_table.setStyle(TableStyle([
@@ -466,14 +501,22 @@ def ese_attendance_pdf():
 @login_required
 def ese_cover_sheet_pdf():
     course_id = request.args.get('course_id')
-    if course_id:
-        course = Course.query.get_or_404(course_id)
-    else:
-        code = request.args.get('course_code', '').strip().upper()
-        potential_courses = Course.query.filter(Course.course_code.ilike(code)).all()
-        course = next((pc for pc in potential_courses if CourseRegistration.query.filter_by(course_id=pc.id).first()), None)
-        if not course and potential_courses: course = potential_courses[0]
-        if not course: return jsonify({'message': 'Course not found'}), 404
+    if not course_id:
+        return jsonify({'message': 'course_id is MANDATORY for PDF generation'}), 400
+        
+    course = Course.query.get_or_404(course_id)
+
+    print("=" * 80)
+    print("[DEBUG] PDF/API ROUTE STARTED: ese_cover_sheet_pdf")
+    print(f"[DEBUG] course_id param = {course_id}")
+    print(f"[DEBUG] course_code param = {request.args.get('course_code')}")
+    print(f"[DEBUG] Resolved Course ID = {course.id}")
+    print(f"[DEBUG] Resolved Course Code = {course.course_code}")
+    print(f"[DEBUG] Curriculum ID = {course.curriculum_id}")
+    print(f"[DEBUG] Department = {course.curriculum.department.code}")
+    print(f"[DEBUG] Regulation = {course.curriculum.regulation.name}")
+    print(f"[DEBUG] Batch = {course.curriculum.batch.label}")
+    print("=" * 80)
 
     schedule = ExamSchedule.query.filter_by(course_id=course.id).first()
     ay = AcademicYear.query.filter_by(is_current=True).first()
@@ -490,6 +533,17 @@ def ese_cover_sheet_pdf():
         .order_by(Student.register_number)
         .all()
     )
+
+    print(f"[DEBUG] Students Loaded = {len(all_students)}")
+    for s in all_students[:20]:
+        print(
+            f"[DEBUG STUDENT] "
+            f"{s.register_number} | "
+            f"{s.department} | "
+            f"{s.batch} | "
+            f"{s.regulation}"
+        )
+    print("=" * 80)
 
     present_students = [s for s in all_students if existing.get(s.id, 'Present') == 'Present']
     total_present = len(present_students)
@@ -563,13 +617,22 @@ def ese_cover_sheet_pdf():
 @login_required
 def ese_despatch_pdf():
     course_id = request.args.get('course_id')
-    if course_id: course = Course.query.get_or_404(course_id)
-    else:
-        code = request.args.get('course_code', '').strip().upper()
-        potential_courses = Course.query.filter(Course.course_code.ilike(code)).all()
-        course = next((pc for pc in potential_courses if CourseRegistration.query.filter_by(course_id=pc.id).first()), None)
-        if not course and potential_courses: course = potential_courses[0]
-        if not course: return jsonify({'message': 'Course not found'}), 404
+    if not course_id:
+        return jsonify({'message': 'course_id is MANDATORY for PDF generation'}), 400
+        
+    course = Course.query.get_or_404(course_id)
+
+    print("=" * 80)
+    print("[DEBUG] PDF/API ROUTE STARTED: ese_despatch_pdf")
+    print(f"[DEBUG] course_id param = {course_id}")
+    print(f"[DEBUG] course_code param = {request.args.get('course_code')}")
+    print(f"[DEBUG] Resolved Course ID = {course.id}")
+    print(f"[DEBUG] Resolved Course Code = {course.course_code}")
+    print(f"[DEBUG] Curriculum ID = {course.curriculum_id}")
+    print(f"[DEBUG] Department = {course.curriculum.department.code}")
+    print(f"[DEBUG] Regulation = {course.curriculum.regulation.name}")
+    print(f"[DEBUG] Batch = {course.curriculum.batch.label}")
+    print("=" * 80)
 
     schedule = ExamSchedule.query.filter_by(course_id=course.id).first()
     ay = AcademicYear.query.filter_by(is_current=True).first()
@@ -584,6 +647,17 @@ def ese_despatch_pdf():
         .order_by(Student.register_number)
         .all()
     )
+
+    print(f"[DEBUG] Students Loaded = {len(all_students)}")
+    for s in all_students[:20]:
+        print(
+            f"[DEBUG STUDENT] "
+            f"{s.register_number} | "
+            f"{s.department} | "
+            f"{s.batch} | "
+            f"{s.regulation}"
+        )
+    print("=" * 80)
 
     present_list = [s for s in all_students if existing.get(s.id, 'Present') == 'Present']
     absent_list  = [s for s in all_students if existing.get(s.id) == 'Absent']
@@ -768,12 +842,23 @@ def ese_dummy_template():
 @login_required
 def ese_sticker_pdf():
     course_id = request.args.get('course_id')
-    if course_id: course = Course.query.get_or_404(course_id)
-    else:
-        code = request.args.get('course_code', '').strip().upper()
-        potential_courses = Course.query.filter(Course.course_code.ilike(code)).all()
-        course = next((pc for pc in potential_courses if CourseRegistration.query.filter_by(course_id=pc.id).first()), None)
-        if not course and potential_courses: course = potential_courses[0]
+    if not course_id:
+        return jsonify({'message': 'course_id is MANDATORY for PDF generation'}), 400
+        
+    course = Course.query.get_or_404(course_id)
+
+    print("=" * 80)
+    print("[DEBUG] PDF/API ROUTE STARTED: ese_sticker_pdf")
+    print(f"[DEBUG] course_id param = {course_id}")
+    print(f"[DEBUG] course_code param = {request.args.get('course_code')}")
+    print(f"[DEBUG] Resolved Course ID = {course.id}")
+    print(f"[DEBUG] Resolved Course Code = {course.course_code}")
+    print(f"[DEBUG] Curriculum ID = {course.curriculum_id}")
+    print(f"[DEBUG] Department = {course.curriculum.department.code}")
+    print(f"[DEBUG] Regulation = {course.curriculum.regulation.name}")
+    print(f"[DEBUG] Batch = {course.curriculum.batch.label}")
+    print("=" * 80)
+
     schedule = ExamSchedule.query.filter_by(course_id=course.id).first() if course else None
     if not schedule: return jsonify({'message': 'No schedule found'}), 404
 
@@ -788,9 +873,20 @@ def ese_sticker_pdf():
         db.session.query(Student)
         .join(CourseRegistration, CourseRegistration.student_id == Student.id)
         .filter(CourseRegistration.course_id == course.id)
+        .order_by(Student.register_number)
         .all()
     )
-    print(f"[STICKER PDF] Loaded Students: {len(base_students)} for Course ID: {course.id}")
+    
+    print(f"[DEBUG] Students Loaded = {len(base_students)}")
+    for s in base_students[:20]:
+        print(
+            f"[DEBUG STUDENT] "
+            f"{s.register_number} | "
+            f"{s.department} | "
+            f"{s.batch} | "
+            f"{s.regulation}"
+        )
+    print("=" * 80)
     eligible = [s for s in base_students if (present_ids is None or s.id in present_ids) and s.id in stickers]
     if not eligible: return jsonify({'message': 'No eligible students found'}), 404
 

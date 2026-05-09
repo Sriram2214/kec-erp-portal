@@ -461,16 +461,20 @@ def get_schedules():
 @api.route('/ese/course-info', methods=['GET'])
 @login_required
 def ese_course_info():
-    """Given ?course_code=GE241203, return course + exam schedule info."""
+    """Given ?course_id=123 or ?course_code=GE241203, return course + exam schedule info."""
+    course_id = request.args.get('course_id', type=int)
     code = request.args.get('course_code', '').strip().upper()
-    if not code:
-        return jsonify({'message': 'course_code required'}), 400
+    
+    if course_id:
+        course = Course.query.get(course_id)
+    elif code:
+        # Fallback to course_code (Ambiguous if multiple curriculums share code)
+        course = Course.query.filter(db.func.upper(Course.course_code) == code).first()
+    else:
+        return jsonify({'message': 'course_id or course_code required'}), 400
 
-    course = Course.query.filter(
-        db.func.upper(Course.course_code) == code
-    ).first()
     if not course:
-        return jsonify({'message': f'Course "{code}" not found'}), 404
+        return jsonify({'message': f'Course not found'}), 404
 
     # Get exam schedule if exists
     schedule = ExamSchedule.query.filter_by(course_id=course.id).first()
@@ -479,6 +483,7 @@ def ese_course_info():
     ay = AcademicYear.query.filter_by(is_current=True).first()
 
     return jsonify({
+        'id':            course.id,
         'course_code':  course.course_code,
         'course_title': course.course_title,
         'department':   course.department,
@@ -500,15 +505,18 @@ def ese_students():
     ?course_code=GE241203
     Returns students sorted by dept → register_number.
     """
+    course_id = request.args.get('course_id', type=int)
     code = request.args.get('course_code', '').strip().upper()
-    if not code:
-        return jsonify({'message': 'course_code required'}), 400
+    
+    if course_id:
+        course = Course.query.get(course_id)
+    elif code:
+        course = Course.query.filter(db.func.upper(Course.course_code) == code).first()
+    else:
+        return jsonify({'message': 'course_id or course_code required'}), 400
 
-    course = Course.query.filter(
-        db.func.upper(Course.course_code) == code
-    ).first()
     if not course:
-        return jsonify({'message': f'Course "{code}" not found'}), 404
+        return jsonify({'message': f'Course not found'}), 404
 
     # Get existing attendance for this course (for pre-filling)
     from app.models import Attendance, ExamSchedule as ES
@@ -518,9 +526,10 @@ def ese_students():
         for att in Attendance.query.filter_by(exam_schedule_id=schedule.id).all():
             existing[att.student_id] = att.status
 
-    # Fetch students by semester matching course's semester
-    students = Student.query.filter_by(
-        semester=course.semester
+    # CRITICAL FIX: Fetch students ONLY from CourseRegistration for this specific course_id
+    from app.models import CourseRegistration
+    students = Student.query.join(CourseRegistration).filter(
+        CourseRegistration.course_id == course.id
     ).order_by(Student.department, Student.register_number).all()
 
     # Fetch dummy stickers
@@ -556,12 +565,17 @@ def save_ese_attendance():
     import datetime
 
     data = request.get_json()
-    code    = data.get('course_code', '').strip().upper()
+    course_id = data.get('course_id')
+    code = data.get('course_code', '').strip().upper()
     entries = data.get('entries', [])
 
-    course = Course.query.filter(
-        db.func.upper(Course.course_code) == code
-    ).first()
+    if course_id:
+        course = Course.query.get(course_id)
+    elif code:
+        course = Course.query.filter(db.func.upper(Course.course_code) == code).first()
+    else:
+        return jsonify({'message': 'course_id or course_code required'}), 400
+
     if not course:
         return jsonify({'message': 'Course not found'}), 404
 
@@ -626,10 +640,12 @@ def ese_attendance_pdf():
     from reportlab.lib.enums import TA_CENTER, TA_LEFT
     import os, datetime
 
+    course_id = request.args.get('course_id', type=int)
     code = request.args.get('course_code', '').strip().upper()
-    course = Course.query.filter(db.func.upper(Course.course_code) == code).first()
-    if not course:
-        return jsonify({'message': 'Course not found'}), 404
+    if course_id: course = Course.query.get(course_id)
+    elif code: course = Course.query.filter(db.func.upper(Course.course_code) == code).first()
+    else: return jsonify({'message': 'course_id or course_code required'}), 400
+    if not course: return jsonify({'message': 'Course not found'}), 404
 
     schedule = ES.query.filter_by(course_id=course.id).first()
     ay = AcademicYear.query.filter_by(is_current=True).first()
@@ -639,8 +655,10 @@ def ese_attendance_pdf():
         for att in Attendance.query.filter_by(exam_schedule_id=schedule.id).all():
             existing[att.student_id] = att.status
 
-    students = Student.query.filter_by(
-        semester=course.semester
+    # CRITICAL FIX: Fetch students ONLY from CourseRegistration
+    from app.models import CourseRegistration
+    students = Student.query.join(CourseRegistration).filter(
+        CourseRegistration.course_id == course.id
     ).order_by(Student.department, Student.register_number).all()
 
     # ── Build PDF ──
@@ -843,10 +861,12 @@ def ese_cover_sheet_pdf():
     from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
     import datetime, math, os
 
+    course_id = request.args.get('course_id', type=int)
     code = request.args.get('course_code', '').strip().upper()
-    course = Course.query.filter(db.func.upper(Course.course_code) == code).first()
-    if not course:
-        return jsonify({'message': 'Course not found'}), 404
+    if course_id: course = Course.query.get(course_id)
+    elif code: course = Course.query.filter(db.func.upper(Course.course_code) == code).first()
+    else: return jsonify({'message': 'course_id or course_code required'}), 400
+    if not course: return jsonify({'message': 'Course not found'}), 404
 
     schedule = ES.query.filter_by(course_id=course.id).first()
     ay = AcademicYear.query.filter_by(is_current=True).first()
@@ -857,9 +877,8 @@ def ese_cover_sheet_pdf():
         for att in Attendance.query.filter_by(exam_schedule_id=schedule.id).all():
             existing[att.student_id] = att.status
 
-    all_students = Student.query.filter_by(
-        semester=course.semester
-    ).order_by(Student.department, Student.register_number).all()
+    from app.models import CourseRegistration
+    all_students = Student.query.join(CourseRegistration).filter(CourseRegistration.course_id == course.id).order_by(Student.department, Student.register_number).all()
 
     present_students = [s for s in all_students if existing.get(s.id, 'Present') == 'Present']
     total_present = len(present_students)
@@ -1087,10 +1106,12 @@ def ese_despatch_pdf():
     from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
     import datetime, math
 
+    course_id = request.args.get('course_id', type=int)
     code = request.args.get('course_code', '').strip().upper()
-    course = Course.query.filter(db.func.upper(Course.course_code) == code).first()
-    if not course:
-        return jsonify({'message': 'Course not found'}), 404
+    if course_id: course = Course.query.get(course_id)
+    elif code: course = Course.query.filter(db.func.upper(Course.course_code) == code).first()
+    else: return jsonify({'message': 'course_id or course_code required'}), 400
+    if not course: return jsonify({'message': 'Course not found'}), 404
 
     schedule = ES.query.filter_by(course_id=course.id).first()
     ay = AcademicYear.query.filter_by(is_current=True).first()
@@ -1100,9 +1121,8 @@ def ese_despatch_pdf():
         for att in Attendance.query.filter_by(exam_schedule_id=schedule.id).all():
             existing[att.student_id] = att.status
 
-    all_students = Student.query.filter_by(
-        semester=course.semester
-    ).order_by(Student.department, Student.register_number).all()
+    from app.models import CourseRegistration
+    all_students = Student.query.join(CourseRegistration).filter(CourseRegistration.course_id == course.id).order_by(Student.department, Student.register_number).all()
 
     total = len(all_students)
     present_list    = [s for s in all_students if existing.get(s.id, 'Present') == 'Present']
@@ -1311,25 +1331,19 @@ def ese_dummy_upload():
             regno      = str(row[0] or '').strip().upper()
             dummy_no   = str(row[1] or '').strip()
             foil_no    = str(row[2] or '').strip()
+            course_id = row[4] if len(row) > 4 else None
             course_code= str(row[3] or '').strip().upper()
 
-            if not all([regno, dummy_no, foil_no, course_code]):
-                errors.append(f'Row {row_num}: Missing fields')
+            if course_id:
+                course = Course.query.get(course_id)
+            elif course_code:
+                course = Course.query.filter(db.func.upper(Course.course_code) == course_code).first()
+            else:
+                errors.append(f'Row {row_num}: Missing course_id or course_code')
                 continue
 
-            student = Student.query.filter(
-                db.func.upper(Student.register_number) == regno
-            ).first()
-            if not student:
-                errors.append(f'Row {row_num}: Student {regno} not found')
-                skipped += 1
-                continue
-
-            course = Course.query.filter(
-                db.func.upper(Course.course_code) == course_code
-            ).first()
             if not course:
-                errors.append(f'Row {row_num}: Course {course_code} not found')
+                errors.append(f'Row {row_num}: Course not found')
                 skipped += 1
                 continue
 
@@ -1482,10 +1496,12 @@ def ese_sticker_pdf():
     from reportlab.lib.enums import TA_CENTER, TA_LEFT
     import datetime, math
 
+    course_id = request.args.get('course_id', type=int)
     code = request.args.get('course_code', '').strip().upper()
-    course = Course.query.filter(db.func.upper(Course.course_code) == code).first()
-    if not course:
-        return jsonify({'message': 'Course not found'}), 404
+    if course_id: course = Course.query.get(course_id)
+    elif code: course = Course.query.filter(db.func.upper(Course.course_code) == code).first()
+    else: return jsonify({'message': 'course_id or course_code required'}), 400
+    if not course: return jsonify({'message': 'Course not found'}), 404
 
     schedule = ExamSchedule.query.filter_by(course_id=course.id).first()
     if not schedule:
@@ -1505,9 +1521,8 @@ def ese_sticker_pdf():
     stickers = DummySticker.query.filter_by(exam_schedule_id=schedule.id).all()
     sticker_map = {ds.student_id: ds for ds in stickers}
 
-    all_students = Student.query.filter_by(
-        semester=course.semester
-    ).order_by(Student.department, Student.register_number).all()
+    from app.models import CourseRegistration
+    all_students = Student.query.join(CourseRegistration).filter(CourseRegistration.course_id == course.id).order_by(Student.department, Student.register_number).all()
 
     # Filter: only present, and must have dummy sticker
     if present_ids is None:

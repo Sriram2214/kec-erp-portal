@@ -103,12 +103,12 @@ from app.models import Student, Attendance, InternalMarks
 @login_required
 def get_students_for_allocation(aid):
     alloc = CourseAllocation.query.get_or_404(aid)
-    # Filter students by the allocation's batch, department (or degree), and section
-    students = Student.query.filter_by(
-        batch=alloc.course.curriculum.batch.label,
-        department=alloc.course.curriculum.department.code,
-        semester=alloc.course.semester
-    ).all()
+    # STRICT: Fetch students ONLY from CourseRegistration for this specific course
+    from app.models import CourseRegistration
+    students = Student.query.join(CourseRegistration).filter(
+        CourseRegistration.course_id == alloc.course_id
+    ).order_by(Student.register_number).all()
+
     
     return jsonify([{
         'id': s.id, 'regno': s.register_number, 'name': s.name

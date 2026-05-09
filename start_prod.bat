@@ -18,12 +18,12 @@ echo [OK] Frontend built to app/static/dist/
 
 echo.
 echo [2/3] Running DB migration...
-venv\Scripts\python migrate_columns.py
+.venv\Scripts\python migrate_columns.py
 
 echo.
 echo [3/3] Starting production server...
 echo   URL     : http://localhost:5000
 echo   Threads : 32 (handles 1000+ concurrent users)
 echo ============================================================
-venv\Scripts\python wsgi.py
+.venv\Scripts\python wsgi.py
 pause

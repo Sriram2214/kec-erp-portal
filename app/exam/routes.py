@@ -15,9 +15,11 @@ def exam_dashboard():
 def mark_attendance(schedule_id):
     schedule = ExamSchedule.query.get_or_404(schedule_id)
     
-    # In a real app, you'd filter students enrolled in this course for this batch
-    # For demonstration, we'll fetch all students
-    students = Student.query.all()
+    # CRITICAL FIX: Fetch students ONLY from CourseRegistration
+    from app.models import CourseRegistration
+    students = Student.query.join(CourseRegistration).filter(
+        CourseRegistration.course_id == schedule.course_id
+    ).order_by(Student.department, Student.register_number).all()
     
     # Fetch existing attendance records
     attendances = Attendance.query.filter_by(exam_schedule_id=schedule_id).all()
@@ -62,9 +64,11 @@ import io
 def generate_despatch(schedule_id):
     schedule = ExamSchedule.query.get_or_404(schedule_id)
     
-    # Get students marked as Present (or default Present if no record exists)
-    # First, get all students (in a real app, only enrolled ones)
-    students = Student.query.all()
+    # CRITICAL FIX: Fetch students ONLY from CourseRegistration
+    from app.models import CourseRegistration
+    students = Student.query.join(CourseRegistration).filter(
+        CourseRegistration.course_id == schedule.course_id
+    ).order_by(Student.department, Student.register_number).all()
     attendances = Attendance.query.filter_by(exam_schedule_id=schedule_id).all()
     attendance_dict = {a.student_id: a.status for a in attendances}
     
@@ -133,9 +137,11 @@ def generate_despatch(schedule_id):
 def generate_stickers(schedule_id):
     schedule = ExamSchedule.query.get_or_404(schedule_id)
     
-    # In a full app, this would use the uploaded excel sheet to map foil numbers.
-    # Here we mock the dummy number generation for present students.
-    students = Student.query.all()
+    # CRITICAL FIX: Fetch students ONLY from CourseRegistration
+    from app.models import CourseRegistration
+    students = Student.query.join(CourseRegistration).filter(
+        CourseRegistration.course_id == schedule.course_id
+    ).order_by(Student.department, Student.register_number).all()
     attendances = Attendance.query.filter_by(exam_schedule_id=schedule_id).all()
     attendance_dict = {a.student_id: a.status for a in attendances}
     
@@ -282,8 +288,10 @@ from app.models import InternalMarks, Course
 @exam_bp.route('/marks/<int:course_id>', methods=['GET', 'POST'])
 @login_required
 def marks_entry(course_id):
-    course = Course.query.get_or_404(course_id)
-    students = Student.query.all()
+    from app.models import CourseRegistration
+    students = Student.query.join(CourseRegistration).filter(
+        CourseRegistration.course_id == course_id
+    ).order_by(Student.register_number).all()
     
     if request.method == 'POST':
         for student in students:

@@ -1,207 +1,178 @@
-"""
-KCE ERP — Curriculum + Student Registration Engine
-====================================================
-
-This script implements the MANDATORY registration pipeline:
-
-  Curriculum → Courses → Students → CourseRegistration
-
-Rules:
-- A student is registered to a course ONLY if their
-  (department_code, regulation, batch) matches the course's curriculum.
-- course_code alone is NEVER globally unique.
-- All ESE workflows use ONLY CourseRegistration.
-"""
-
 import csv
+import os
 import sys
 from app import create_app, db
 from app.models import (
     Curriculum, Course, Student, CourseRegistration,
     Degree, Department, Batch, Regulation
 )
+from sqlalchemy import text
 
-# ===========================================================
-# MAPPING: CSV dept full name → DB Department name
-# ===========================================================
-DEPT_FULL_TO_NAME = {
-    "B.E. Biomedical Engineering":              "Biomedical Engineering",
-    "B.E. Computer Science and Engineering":    "Computer Science and Engineering",
-    "B.E. Computer Science and Engineering (Artificial Intelligence and Machine Learning)":
-                                                "Computer Science and Engineering (Artificial Intelligence and Machine Learning)",
-    "B.E. Electronics and Communication Engineering": "Electronics and Communication Engineering",
-    "B.E. Mechanical Engineering":              "Mechanical Engineering",
-    "B.E. Robotics and Automation":             "Robotics and Automation",
-    "B.Tech. Artificial Intelligence and Data Science": "Artificial Intelligence and Data Science",
-    "B.Tech. Information Technology":           "Information Technology",
-    "M.E. Computer Science and Engineering":    "Computer Science and Engineering",
+# Mapping CSV "DEPARTMENT" column to DB Department Name and Degree Name
+CSV_DEPT_MAP = {
+    "B.E. Biomedical Engineering": ("Biomedical Engineering", "BE"),
+    "B.E. Computer Science and Engineering": ("Computer Science and Engineering", "BE"),
+    "B.E. Computer Science and Engineering (Artificial Intelligence and Machine Learning)": 
+        ("Computer Science and Engineering (Artificial Intelligence and Machine Learning)", "BE"),
+    "B.E. Electronics and Communication Engineering": ("Electronics and Communication Engineering", "BE"),
+    "B.E. Mechanical Engineering": ("Mechanical Engineering", "BE"),
+    "B.E. Robotics and Automation": ("Robotics and Automation", "BE"),
+    "B.Tech. Artificial Intelligence and Data Science": ("Artificial Intelligence and Data Science", "B.Tech"),
+    "B.Tech. Information Technology": ("Information Technology", "B.Tech"),
+    "M.E. Computer Science and Engineering": ("Computer Science and Engineering", "ME"),
 }
 
-DEPT_FULL_TO_DEGREE = {
-    "B.E. Biomedical Engineering":              "BE",
-    "B.E. Computer Science and Engineering":    "BE",
-    "B.E. Computer Science and Engineering (Artificial Intelligence and Machine Learning)": "BE",
-    "B.E. Electronics and Communication Engineering": "BE",
-    "B.E. Mechanical Engineering":              "BE",
-    "B.E. Robotics and Automation":             "BE",
-    "B.Tech. Artificial Intelligence and Data Science": "B.Tech",
-    "B.Tech. Information Technology":           "B.Tech",
-    "M.E. Computer Science and Engineering":    "ME",
-}
-
-
-def run_engine(course_csv_path: str):
+def rebuild_academic_data(csv_path="course_details_2021_2025.csv"):
     app = create_app()
     with app.app_context():
-        print("=" * 60, flush=True)
-        print("KCE Curriculum Registration Engine", flush=True)
-        print("=" * 60, flush=True)
+        print("="*60)
+        print("KCE MASTER ACADEMIC REBUILD ENGINE")
+        print(f"Source: {csv_path}")
+        print("="*60)
 
         # --------------------------------------------------
-        # PHASE 1: Load all curricula from DB into a lookup
+        # PHASE 1: Cleanup (Mandatory Fix Plan)
         # --------------------------------------------------
-        print("\nPHASE 1: Loading curricula from DB...", flush=True)
-        all_curricula = (
-            db.session.query(Curriculum)
-            .join(Degree)
-            .join(Department)
-            .join(Batch)
-            .join(Regulation)
-            .all()
-        )
-
-        # Key: (degree_name, dept_name, batch_label, reg_name) → curriculum
-        curriculum_map = {}
-        for c in all_curricula:
-            key = (c.degree.name, c.department.name, c.batch.label, c.regulation.name)
-            curriculum_map[key] = c
-
-        print(f"  Loaded {len(curriculum_map)} curriculum entries.", flush=True)
+        print("\nPHASE 1: Cleanup...")
+        
+        # 1. Delete invalid generic curriculums (Batch 2023-2027 | R2021)
+        bad_currs = Curriculum.query.join(Batch).join(Regulation).filter(
+            Batch.label == '2023-2027',
+            Regulation.name == 'R2021'
+        ).all()
+        
+        if bad_currs:
+            for curr in bad_currs:
+                CourseRegistration.query.join(Course).filter(Course.curriculum_id == curr.id).delete(synchronize_session=False)
+                Course.query.filter_by(curriculum_id=curr.id).delete(synchronize_session=False)
+                db.session.delete(curr)
+            print(f"  -> Deleted {len(bad_currs)} invalid generic curriculums.")
+        
+        # 2. Clear corrupted registrations (Mismatching Dept/Batch/Reg)
+        # This is critical for data integrity
+        all_regs = CourseRegistration.query.all()
+        deleted_reg_count = 0
+        for reg in all_regs:
+            s = reg.student
+            c = reg.course
+            if not c or not c.curriculum: continue
+            cur = c.curriculum
+            
+            if (s.department != cur.department.code or 
+                s.batch != cur.batch.label or 
+                s.regulation != cur.regulation.name):
+                db.session.delete(reg)
+                deleted_reg_count += 1
+        
+        if deleted_reg_count > 0:
+            print(f"  -> Deleted {deleted_reg_count} corrupted registrations.")
+            
+        db.session.commit()
 
         # --------------------------------------------------
-        # PHASE 2: Load all students grouped by (dept_code, batch, regulation)
+        # PHASE 2: Load Master Data Caches
         # --------------------------------------------------
-        print("\nPHASE 2: Loading students from DB...", flush=True)
-        all_students = db.session.query(Student).all()
-        # Group: (dept_code, batch_label, reg_name) → [student_ids]
-        student_group = {}
-        for s in all_students:
+        print("\nPHASE 2: Loading Master Data...")
+        curricula = Curriculum.query.all()
+        curr_map = {(c.degree.name, c.department.name, c.batch.label, c.regulation.name): c for c in curricula}
+            
+        students = Student.query.all()
+        student_groups = {}
+        for s in students:
             key = (s.department, s.batch, s.regulation)
-            student_group.setdefault(key, []).append(s.id)
-
-        print(f"  Loaded {len(all_students)} students across {len(student_group)} groups.", flush=True)
+            if key not in student_groups:
+                student_groups[key] = []
+            student_groups[key].append(s)
+        print(f"  -> Loaded {len(curr_map)} curricula and {len(students)} students.")
 
         # --------------------------------------------------
-        # PHASE 3: Process course CSV
+        # PHASE 3: Process CSV
         # --------------------------------------------------
-        print(f"\nPHASE 3: Processing {course_csv_path}...", flush=True)
+        print(f"\nPHASE 3: Processing {csv_path}...")
+        
+        if not os.path.exists(csv_path):
+            print(f"ERROR: {csv_path} not found!")
+            return
 
-        courses_added = 0
-        regs_added = 0
-        skipped_curriculum = set()
-
-        with open(course_csv_path, 'r', encoding='utf-8') as f:
+        courses_created = 0
+        registrations_created = 0
+        row_count = 0
+        
+        with open(csv_path, mode='r', encoding='utf-8') as f:
             reader = csv.DictReader(f)
-
             for row in reader:
-                dept_full = row['DEPARTMENT'].strip()
-                batch_raw = row['BATCH'].strip().replace(' ', '')
-                reg_raw   = 'R' + row['REGULATION'].strip()
-                sem       = int(row['SEM'])
-                code      = row['COURSE CODE'].strip().upper()
-                name      = row['COURSE NAME'].strip()
-                credits   = int(float(row.get('CREDITS', '0') or '0'))
-
-                degree_name = DEPT_FULL_TO_DEGREE.get(dept_full)
-                dept_name   = DEPT_FULL_TO_NAME.get(dept_full)
-
-                if not degree_name or not dept_name:
-                    # Unknown dept format — try strip prefix fallback
-                    for prefix, deg in [("B.E.", "BE"), ("B.Tech.", "B.Tech"), ("M.E.", "ME")]:
-                        if dept_full.startswith(prefix):
-                            degree_name = deg
-                            dept_name   = dept_full[len(prefix):].strip()
-                            break
-
-                if not degree_name:
-                    print(f"  SKIP (unknown dept): {dept_full}", flush=True)
+                row_count += 1
+                csv_dept = row['DEPARTMENT'].strip()
+                batch_label = row['BATCH'].strip().replace(" ", "")
+                reg_name = "R" + row['REGULATION'].strip() if not row['REGULATION'].strip().startswith('R') else row['REGULATION'].strip()
+                
+                if csv_dept not in CSV_DEPT_MAP:
+                    continue
+                
+                dept_name, deg_name = CSV_DEPT_MAP[csv_dept]
+                curr_key = (deg_name, dept_name, batch_label, reg_name)
+                curriculum = curr_map.get(curr_key)
+                
+                if not curriculum:
                     continue
 
-                curr_key = (degree_name, dept_name, batch_raw, reg_raw)
-
-                if curr_key not in curriculum_map:
-                    if curr_key not in skipped_curriculum:
-                        print(f"  CURRICULUM NOT FOUND: {curr_key}", flush=True)
-                        skipped_curriculum.add(curr_key)
-                    continue
-
-                curriculum = curriculum_map[curr_key]
-                dept_code  = curriculum.department.code
-
-                # Step 3a: Ensure course exists
-                course = Course.query.filter_by(
-                    course_code=code,
-                    curriculum_id=curriculum.id
-                ).first()
-
+                # Course Check/Create
+                course_code = row['COURSE CODE'].strip().upper()
+                course = Course.query.filter_by(course_code=course_code, curriculum_id=curriculum.id).first()
                 if not course:
                     course = Course(
-                        course_code=code,
-                        course_title=name,
-                        curriculum_id=curriculum.id,
-                        semester=sem,
-                        credits=credits
+                        course_code=course_code,
+                        course_title=row['COURSE NAME'].strip(),
+                        credits=float(row['CREDITS']) if row['CREDITS'] else 0.0,
+                        semester=int(row['SEM']),
+                        curriculum_id=curriculum.id
                     )
                     db.session.add(course)
                     db.session.flush()
-                    courses_added += 1
+                    courses_created += 1
 
-                # Step 3b: Register students
-                # Students who belong to THIS curriculum:
-                # dept_code, batch_raw, reg_raw
-                student_key = (dept_code, batch_raw, reg_raw)
-                student_ids = student_group.get(student_key, [])
+                # Registration (Optimized)
+                group_key = (curriculum.department.code, curriculum.batch.label, curriculum.regulation.name)
+                eligible_students = student_groups.get(group_key, [])
+                
+                if eligible_students:
+                    existing_reg_ids = set(r[0] for r in db.session.query(CourseRegistration.student_id).filter_by(course_id=course.id).all())
+                    for s in eligible_students:
+                        if s.id not in existing_reg_ids:
+                            db.session.add(CourseRegistration(student_id=s.id, course_id=course.id))
+                            registrations_created += 1
 
-                if not student_ids:
-                    # Debug: try reg without 'R' prefix
-                    student_key_plain = (dept_code, batch_raw, row['REGULATION'].strip())
-                    student_ids = student_group.get(student_key_plain, [])
-
-                if student_ids:
-                    # Get already registered student IDs for this course
-                    existing = set(
-                        r[0] for r in db.session.query(CourseRegistration.student_id)
-                        .filter(CourseRegistration.course_id == course.id).all()
-                    )
-
-                    new_count = 0
-                    for sid in student_ids:
-                        if sid not in existing:
-                            db.session.add(CourseRegistration(
-                                student_id=sid,
-                                course_id=course.id
-                            ))
-                            regs_added += 1
-                            new_count += 1
-
-                    if new_count:
-                        print(f"  {code} [{batch_raw}|{reg_raw}|{dept_code}] -> +{new_count} students", flush=True)
-
-                # Commit every 20 courses to stay within connection time
-                if courses_added % 20 == 0 and courses_added > 0:
+                if row_count % 100 == 0:
                     db.session.commit()
-                    print(f"  >>> Committed. Courses: {courses_added}, Regs: {regs_added}", flush=True)
+                    print(f"  Processed {row_count} rows...")
 
         db.session.commit()
-        print("\n" + "=" * 60, flush=True)
-        print(f"DONE! Courses added: {courses_added} | Registrations added: {regs_added}", flush=True)
-        print(f"Skipped curricula: {len(skipped_curriculum)}", flush=True)
-        if skipped_curriculum:
-            for k in sorted(skipped_curriculum):
-                print(f"  MISSING: {k}", flush=True)
-        print("=" * 60, flush=True)
+        print(f"\nFINISHED: Created {courses_created} courses and {registrations_created} registrations.")
 
+        # --------------------------------------------------
+        # PHASE 4: Final Validation
+        # --------------------------------------------------
+        print("\nPHASE 4: Final Integrity Validation...")
+        validation_query = text("""
+            SELECT COUNT(*)
+            FROM course_registration cr
+            JOIN student s ON s.id = cr.student_id
+            JOIN course c ON c.id = cr.course_id
+            JOIN curriculum cur ON cur.id = c.curriculum_id
+            JOIN department d ON d.id = cur.department_id
+            JOIN batch b ON b.id = cur.batch_id
+            JOIN regulation r ON r.id = cur.regulation_id
+            WHERE s.department != d.code OR s.batch != b.label OR s.regulation != r.name;
+        """)
+        try:
+            mismatches = db.session.execute(validation_query).scalar()
+            if mismatches == 0:
+                print("SUCCESS: 0 Mismatches found. Data is 100% clean.")
+            else:
+                print(f"WARNING: {mismatches} mismatches still exist in registrations!")
+        except Exception as e:
+            print(f"Validation Error: {e}")
 
 if __name__ == "__main__":
-    csv_path = sys.argv[1] if len(sys.argv) > 1 else 'original_course_details.csv'
-    run_engine(csv_path)
+    # Use the specified CSV as source of truth
+    rebuild_academic_data("course_details_2021_2025.csv")

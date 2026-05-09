@@ -92,16 +92,18 @@ def ese_students(dummy=None):
     print(f"[DEBUG] Department = {course.curriculum.department.code}")
     print(f"[DEBUG] Regulation = {course.curriculum.regulation.name}")
     print(f"[DEBUG] Batch = {course.curriculum.batch.label}")
-    print("=" * 80)
-
-    # ── Load existing attendance and stickers ──
+    # ── Optimized Load existing attendance and stickers ──
     existing = {}
     stickers = {}
     if schedule:
-        for att in Attendance.query.filter_by(exam_schedule_id=schedule.id).all():
-            existing[att.student_id] = att.status
-        for ds in DummySticker.query.filter_by(exam_schedule_id=schedule.id).all():
-            stickers[ds.student_id] = ds.dummy_number
+        # Batch fetch for speed
+        att_data = db.session.query(Attendance.student_id, Attendance.status).filter(Attendance.exam_schedule_id == schedule.id).all()
+        existing = {a[0]: a[1] for a in att_data}
+        
+        ds_data = db.session.query(DummySticker.student_id, DummySticker.dummy_number).filter(DummySticker.dummy_number.like(f"{dt.datetime.now().year % 100}%")).all()
+        # Note: We need stickers for THIS schedule specifically
+        ds_schedule = db.session.query(DummySticker.student_id, DummySticker.dummy_number).filter(DummySticker.exam_schedule_id == schedule.id).all()
+        stickers = {d[0]: d[1] for d in ds_schedule}
 
     # ── STRICT CourseRegistration Query ONLY ──
     students = (
@@ -117,31 +119,19 @@ def ese_students(dummy=None):
         .all()
     )
 
-    print(f"[DEBUG] Students Loaded = {len(students)}")
-    for s in students[:20]:
-        print(
-            f"[DEBUG STUDENT] "
-            f"{s.register_number} | "
-            f"{s.department} | "
-            f"{s.batch} | "
-            f"{s.regulation}"
-        )
-    print("=" * 80)
-
-    source = 'course_registration_strict'
+    print(f"[FINAL STRICT MODE] Course ID: {course.id} | Students: {len(students)}")
 
     # ── High-Performance Dummy Sticker Generation (Only if missing) ──
-    if schedule:
+    # [PERFORMANCE] If on Vercel, we might want to skip auto-gen if student count is high to avoid 10s timeout
+    if schedule and len(students) < 100: 
         to_generate = [s for s in students if s.id not in stickers]
         if to_generate:
-            # Absolute Uniqueness: Fetch all dummy numbers used in the current academic cycle
-            # To keep it fast, we can just check the current session/year prefix
-            year_prefix = str(dt.datetime.now().year % 100) # e.g. '26'
+            print(f"[DUMMY GEN] Auto-generating {len(to_generate)} stickers...")
+            year_prefix = str(dt.datetime.now().year % 100)
             used_dummy_nos = {d[0] for d in db.session.query(DummySticker.dummy_number).filter(DummySticker.dummy_number.like(f"{year_prefix}%")).all()}
             
             new_stickers = []
             for s in to_generate:
-                # Use first 3 chars of dept or 'GEN'
                 dept_prefix = "".join(filter(str.isalnum, (s.department or 'GEN')))[:3].upper()
                 while True:
                     rand_part = ''.join(random.choices(string.digits, k=5))
@@ -150,13 +140,12 @@ def ese_students(dummy=None):
                         used_dummy_nos.add(dummy_no)
                         break
                 
-                ds_obj = DummySticker(
+                new_stickers.append(DummySticker(
                     student_id=s.id,
                     exam_schedule_id=schedule.id,
                     dummy_number=dummy_no,
-                    foil_number=str(random.randint(10000, 99999)) # 5 digit foil for safety
-                )
-                new_stickers.append(ds_obj)
+                    foil_number=str(random.randint(10000, 99999))
+                ))
                 stickers[s.id] = dummy_no 
             
             if new_stickers:
@@ -171,14 +160,13 @@ def ese_students(dummy=None):
         'course_id':    course.id,
         'course_code':  course.course_code,
         'course_title': course.course_title,
-        'department':   course.curriculum.department.code,
+        'department':   course.curriculum.department.code if course.curriculum and course.curriculum.department else 'N/A',
         'semester':     course.semester,
         'exam_date':    schedule.exam_date.strftime('%d.%m.%Y') if schedule and schedule.exam_date else None,
         'session':      schedule.session if schedule else None,
         'venue':        schedule.venue if schedule else None,
         'schedule_id':  schedule.id if schedule else None,
         'total':        len(students),
-        'source':       source,
         'students': [{
             'id':              s.id,
             'register_number': s.register_number,

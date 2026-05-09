@@ -960,8 +960,20 @@ def get_hallticket_pdf():
             'status': 'not_cleared'
         }), 403
         
-    schedules = ExamSchedule.query.join(Course).join(Curriculum).join(Department).filter(Department.code == student.department, Course.semester == student.semester, ExamSchedule.academic_year_id == ay.id).all()
-    if not schedules: return jsonify({'message': 'No exam schedules found'}), 404
+    # ── STRICT CourseRegistration based Schedule Loading ──
+    schedules = (
+        ExamSchedule.query
+        .join(Course, Course.id == ExamSchedule.course_id)
+        .join(CourseRegistration, CourseRegistration.course_id == Course.id)
+        .filter(
+            CourseRegistration.student_id == student.id,
+            ExamSchedule.academic_year_id == ay.id
+        )
+        .all()
+    )
+    
+    print(f"[HALLTICKET] Student: {student.register_number} | Registered Exams: {len(schedules)}")
+    if not schedules: return jsonify({'message': 'No registered exam schedules found for current semester.'}), 404
     schedules.sort(key=lambda x: x.exam_date if x.exam_date else dt.date.max)
 
     buf = io.BytesIO()

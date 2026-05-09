@@ -301,7 +301,10 @@ export default function Attendance() {
                   setMatchingInstances(matches)
                   
                   if (matches.length === 1) {
-                    setSelectedInstanceId(matches[0].id)
+                    const singleId = matches[0].id
+                    setSelectedInstanceId(singleId)
+                    // Auto-load if only one instance exists to save a click
+                    handleLoad(val, singleId)
                   }
                 }}
               >

@@ -2,8 +2,8 @@ from flask import jsonify, request, send_file
 from flask_login import login_required, current_user
 from app.api import api
 from app.models import (Student, Course, ExamSchedule, Attendance, CourseRegistration, Curriculum,
-                        AcademicYear, DummySticker, FoilMark, FeeClearance, Department, 
-                        Degree, Batch, Regulation)
+                        AcademicYear, DummySticker, FoilMark, FeeClearance, Department,
+                        Degree, Batch, Regulation, SemesterDummyAllocation)
 from app import db, limiter
 from app.utils.logger import audit_log
 import datetime as dt
@@ -174,40 +174,78 @@ def ese_students(dummy=None):
 
 
 
-    # ── High-Performance Dummy Sticker Generation (Only if missing) ──
-    # [PERFORMANCE] If on Vercel, we might want to skip auto-gen if student count is high to avoid 10s timeout
-    if schedule and len(students) < 100: 
-        to_generate = [s for s in students if s.id not in stickers]
-        if to_generate:
-            print(f"[DUMMY GEN] Auto-generating {len(to_generate)} stickers...")
-            year_prefix = str(dt.datetime.now().year % 100)
-            used_dummy_nos = {d[0] for d in db.session.query(DummySticker.dummy_number).filter(DummySticker.dummy_number.like(f"{year_prefix}%")).all()}
-            
+
+    # ── Dummy Number Resolution via SemesterDummyAllocation ──
+    # One dummy number per student per SEMESTER (not per course).
+    # This is the correct COE architecture — same dummy across all exams in a semester.
+    if schedule and students:
+        ay = AcademicYear.query.filter_by(is_current=True).first()
+        if ay:
+            # Fetch existing semester allocations for these students
+            student_ids = [s.id for s in students]
+            existing_allocs = {
+                a.student_id: a.dummy_number
+                for a in SemesterDummyAllocation.query.filter(
+                    SemesterDummyAllocation.student_id.in_(student_ids),
+                    SemesterDummyAllocation.semester == course.semester,
+                    SemesterDummyAllocation.academic_year_id == ay.id
+                ).all()
+            }
+
+            # Find students who don't yet have a semester dummy allocated
+            to_allocate = [s for s in students if s.id not in existing_allocs]
+            if to_allocate:
+                print(f"[DUMMY ALLOC] Allocating semester dummies for {len(to_allocate)} students (Sem {course.semester})...")
+                year_prefix = str(dt.datetime.now().year % 100)
+                used_nos = {d[0] for d in db.session.query(SemesterDummyAllocation.dummy_number).all()}
+
+                new_allocs = []
+                for s in to_allocate:
+                    while True:
+                        rand_part = ''.join(random.choices(string.digits, k=5))
+                        dummy_no = f"{year_prefix}{rand_part}"
+                        if dummy_no not in used_nos:
+                            used_nos.add(dummy_no)
+                            break
+                    alloc = SemesterDummyAllocation(
+                        student_id=s.id,
+                        semester=course.semester,
+                        academic_year_id=ay.id,
+                        dummy_number=dummy_no,
+                        foil_number=str(random.randint(10000, 99999))
+                    )
+                    new_allocs.append(alloc)
+                    existing_allocs[s.id] = dummy_no
+
+                try:
+                    db.session.bulk_save_objects(new_allocs)
+                    db.session.commit()
+                except Exception as e:
+                    db.session.rollback()
+                    logging.error(f"[DUMMY ALLOC ERROR] {e}")
+
+            # Sync DummySticker table for this exam schedule (for fast PDF lookups)
+            existing_sticker_ids = {d.student_id for d in DummySticker.query.filter_by(exam_schedule_id=schedule.id).all()}
             new_stickers = []
-            for s in to_generate:
-                dept_prefix = "".join(filter(str.isalnum, (s.department or 'GEN')))[:3].upper()
-                while True:
-                    rand_part = ''.join(random.choices(string.digits, k=5))
-                    dummy_no = f"{year_prefix}{dept_prefix}{rand_part}"
-                    if dummy_no not in used_dummy_nos:
-                        used_dummy_nos.add(dummy_no)
-                        break
-                
-                new_stickers.append(DummySticker(
-                    student_id=s.id,
-                    exam_schedule_id=schedule.id,
-                    dummy_number=dummy_no,
-                    foil_number=str(random.randint(10000, 99999))
-                ))
-                stickers[s.id] = dummy_no 
-            
+            for s in students:
+                if s.id not in existing_sticker_ids and s.id in existing_allocs:
+                    new_stickers.append(DummySticker(
+                        student_id=s.id,
+                        exam_schedule_id=schedule.id,
+                        dummy_number=existing_allocs[s.id],
+                        foil_number=''
+                    ))
             if new_stickers:
                 try:
                     db.session.bulk_save_objects(new_stickers)
                     db.session.commit()
                 except Exception as e:
                     db.session.rollback()
-                    logging.error(f"DUMMY GEN ERROR: {e}")
+                    logging.error(f"[STICKER SYNC ERROR] {e}")
+
+            # Update stickers dict for response
+            stickers = existing_allocs
+
 
     return jsonify({
         'source':       source,
@@ -403,9 +441,7 @@ def ese_attendance_pdf():
             db.session.query(Student)
             .filter(
                 Student.department == course.curriculum.department.code,
-                Student.batch      == course.curriculum.batch.label,
-                Student.regulation == course.curriculum.regulation.name,
-                Student.semester   == course.semester   # CRITICAL FIX: scope to THIS semester only
+                Student.regulation == course.curriculum.regulation.name
             )
             .order_by(Student.register_number)
             .all()

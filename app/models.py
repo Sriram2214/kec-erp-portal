@@ -298,11 +298,39 @@ class Attendance(db.Model):
     def __init__(self, **kwargs):
         super(Attendance, self).__init__(**kwargs)
 
+# ─────────────────────────────────────────────
+# Semester-Level Dummy Allocation (COE Architecture)
+# One dummy number per student per semester — used across ALL courses that semester
+# ─────────────────────────────────────────────
+class SemesterDummyAllocation(db.Model):
+    """One dummy number per student per semester per academic year.
+    Used consistently across all exam reports (Attendance, Cover Sheet, Stickers, Despatch)."""
+    __tablename__ = 'semester_dummy_allocation'
+    __table_args__ = (
+        db.UniqueConstraint('student_id', 'semester', 'academic_year_id', name='_student_sem_ay_dummy_uc'),
+    )
+    id               = db.Column(db.Integer, primary_key=True)
+    student_id       = db.Column(db.Integer, db.ForeignKey('student.id'), index=True, nullable=False)
+    semester         = db.Column(db.Integer, nullable=False)           # 1–8
+    academic_year_id = db.Column(db.Integer, db.ForeignKey('academic_year.id'), nullable=False)
+    dummy_number     = db.Column(db.String(50), unique=True, nullable=False, index=True)
+    foil_number      = db.Column(db.String(50))
+    allocated_on     = db.Column(db.DateTime, default=datetime.utcnow)
+
+    student      = db.relationship('Student',      backref=db.backref('dummy_allocations', lazy=True))
+    academic_year = db.relationship('AcademicYear', backref=db.backref('dummy_allocations', lazy=True))
+
+    def __init__(self, **kwargs):
+        super(SemesterDummyAllocation, self).__init__(**kwargs)
+
+
 class DummySticker(db.Model):
+    """Per-exam-schedule sticker — links to SemesterDummyAllocation for the dummy number."""
     __table_args__ = (db.UniqueConstraint('student_id', 'exam_schedule_id', name='_stu_exam_dummy_uc'),)
     id               = db.Column(db.Integer, primary_key=True)
     student_id       = db.Column(db.Integer, db.ForeignKey('student.id'), index=True, nullable=False)
     exam_schedule_id = db.Column(db.Integer, db.ForeignKey('exam_schedule.id'), index=True, nullable=False)
+    # Resolved from SemesterDummyAllocation — stored for fast PDF rendering
     dummy_number     = db.Column(db.String(50), index=True, nullable=False)
     foil_number      = db.Column(db.String(50), nullable=False)
 

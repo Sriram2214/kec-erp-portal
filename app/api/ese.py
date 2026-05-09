@@ -38,6 +38,44 @@ from app.utils.pdf import get_institutional_header, HEADER_IMG, LOGO_PATH
 
 
 
+# ── ESE Course Info ──
+
+@api.route('/ese/course-info', methods=['GET'])
+@login_required
+def ese_course_info():
+    """
+    Get course details including exam schedule and current academic year.
+    STRICT: Requires course_id for curriculum isolation.
+    """
+    course_id = request.args.get('course_id')
+    if not course_id:
+        return jsonify({'message': 'course_id is MANDATORY'}), 400
+    
+    course = Course.query.get_or_404(course_id)
+
+
+    if not course:
+        return jsonify({'message': f'Course not found'}), 404
+
+    # Get exam schedule if exists
+    schedule = ExamSchedule.query.filter_by(course_id=course.id).first()
+    ay = AcademicYear.query.filter_by(is_current=True).first()
+
+    return jsonify({
+        'id':            course.id,
+        'course_code':  course.course_code,
+        'course_title': course.course_title,
+        'department':   course.curriculum.department.code if course.curriculum else 'N/A',
+        'semester':     course.semester,
+        'credits':      course.credits,
+        'is_lab':       course.is_lab,
+        'regulation':   course.curriculum.regulation.name if course.curriculum else 'N/A',
+        'exam_date':    schedule.exam_date.strftime('%d.%m.%Y %a') if schedule else '',
+        'session':      schedule.session if schedule else '',
+        'ay_label':     ay.label if ay else '2025-26',
+        'ay_semester':  ay.semester if ay else 'EVEN'
+    })
+
 # ── ESE Attendance ──
 
 
@@ -105,21 +143,36 @@ def ese_students(dummy=None):
         ds_schedule = db.session.query(DummySticker.student_id, DummySticker.dummy_number).filter(DummySticker.exam_schedule_id == schedule.id).all()
         stickers = {d[0]: d[1] for d in ds_schedule}
 
-    # ── STRICT CourseRegistration Query ONLY ──
+    # ── High-Performance Student Fetching ──
+    # 1. Try STRICT CourseRegistration first (Official Roster)
     students = (
         db.session.query(Student)
-        .join(
-            CourseRegistration,
-            CourseRegistration.student_id == Student.id
-        )
-        .filter(
-            CourseRegistration.course_id == course.id
-        )
+        .join(CourseRegistration, CourseRegistration.student_id == Student.id)
+        .filter(CourseRegistration.course_id == course.id)
         .order_by(Student.register_number)
         .all()
     )
+    source = 'course_registration'
 
-    print(f"[FINAL STRICT MODE] Course ID: {course.id} | Students: {len(students)}")
+    # 2. Fallback to Curriculum-based "Preview" if no registrations exist
+    if not students:
+        print(f"[PREVIEW MODE] No registrations for {course.id}. Loading curriculum preview...")
+        students = Student.query.filter(
+            Student.batch == course.curriculum.batch.label,
+            Student.regulation == course.curriculum.regulation.name,
+            Student.department == course.curriculum.department.code,
+            Student.semester == course.semester
+        ).order_by(Student.register_number).all()
+        source = 'fallback_preview'
+
+    print("=" * 60)
+    print(f"[API SOURCE: {source.upper()}]")
+    print(f"Course ID:   {course.id}")
+    print(f"Course Code: {course.course_code}")
+    print(f"Students Found: {len(students)}")
+    print("=" * 60)
+
+
 
     # ── High-Performance Dummy Sticker Generation (Only if missing) ──
     # [PERFORMANCE] If on Vercel, we might want to skip auto-gen if student count is high to avoid 10s timeout
@@ -157,7 +210,9 @@ def ese_students(dummy=None):
                     logging.error(f"DUMMY GEN ERROR: {e}")
 
     return jsonify({
+        'source':       source,
         'course_id':    course.id,
+
         'course_code':  course.course_code,
         'course_title': course.course_title,
         'department':   course.curriculum.department.code if course.curriculum and course.curriculum.department else 'N/A',
@@ -306,17 +361,16 @@ def ese_attendance_pdf():
     
     course = Course.query.get_or_404(course_id)
 
-    print("=" * 80)
-    print("[DEBUG] PDF/API ROUTE STARTED: ese_attendance_pdf")
-    print(f"[DEBUG] course_id param = {course_id}")
-    print(f"[DEBUG] course_code param = {request.args.get('course_code')}")
-    print(f"[DEBUG] Resolved Course ID = {course.id}")
-    print(f"[DEBUG] Resolved Course Code = {course.course_code}")
-    print(f"[DEBUG] Curriculum ID = {course.curriculum_id}")
-    print(f"[DEBUG] Department = {course.curriculum.department.code}")
-    print(f"[DEBUG] Regulation = {course.curriculum.regulation.name}")
-    print(f"[DEBUG] Batch = {course.curriculum.batch.label}")
-    print("=" * 80)
+    print("=" * 60)
+    print("[PDF STRICT MODE: ATTENDANCE]")
+    print(f"Course ID:   {course.id}")
+    print(f"Course Code: {course.course_code}")
+    print(f"Course:      {course.course_title}")
+    print(f"Dept:        {course.curriculum.department.code}")
+    print(f"Batch:       {course.curriculum.batch.label}")
+    print(f"Regulation:  {course.curriculum.regulation.name}")
+    print("=" * 60)
+
 
     schedule = ExamSchedule.query.filter_by(course_id=course.id).first()
     ay = AcademicYear.query.filter_by(is_current=True).first()
@@ -325,7 +379,8 @@ def ese_attendance_pdf():
         for att in Attendance.query.filter_by(exam_schedule_id=schedule.id).all():
             existing[att.student_id] = att.status
 
-    # ── STRICT CourseRegistration Query ──
+    # ── High-Performance Student Fetching ──
+    # 1. Try STRICT CourseRegistration first (Official Roster)
     students = (
         db.session.query(Student)
         .join(CourseRegistration, CourseRegistration.student_id == Student.id)
@@ -333,17 +388,35 @@ def ese_attendance_pdf():
         .order_by(Student.register_number)
         .all()
     )
-    
-    print(f"[DEBUG] Students Loaded = {len(students)}")
-    for s in students[:20]:
-        print(
-            f"[DEBUG STUDENT] "
-            f"{s.register_number} | "
-            f"{s.department} | "
-            f"{s.batch} | "
-            f"{s.regulation}"
+
+    # 2. SAFE CURRICULUM FALLBACK
+    if not students:
+        print("=" * 60)
+        print("[PDF FALLBACK MODE]")
+        print(f"Course ID: {course.id}")
+        print(f"Course Code: {course.course_code}")
+        print(f"Strict Registration Count: 0")
+        print("[SAFE CURRICULUM PREVIEW ACTIVATED]")
+        print("=" * 60)
+        
+        students = (
+            db.session.query(Student)
+            .filter(
+                Student.department == course.curriculum.department.code,
+                Student.batch      == course.curriculum.batch.label,
+                Student.regulation == course.curriculum.regulation.name,
+                Student.semester   == course.semester   # CRITICAL FIX: scope to THIS semester only
+            )
+            .order_by(Student.register_number)
+            .all()
         )
-    print("=" * 80)
+
+    
+    print(f"[DEBUG] Students Found: {len(students)}")
+    for s in students[:10]:
+        print(f"[ROSTER] {s.register_number} | {s.department} | {s.batch}")
+    print("=" * 60)
+
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(
@@ -388,19 +461,23 @@ def ese_attendance_pdf():
     story.append(HRFlowable(width='100%', thickness=0.5, color=colors.black))
     story.append(Spacer(1, 2*mm))
 
-    dept_name = course.curriculum.department.code
+    import xml.sax.saxutils as saxutils
+    dept_name = saxutils.escape(course.curriculum.department.code)
+    course_title = saxutils.escape(course.course_title)
+    course_code = saxutils.escape(course.course_code)
+
     info_data = [
         [
             Paragraph('<b>Degree &amp; Branch</b> :', label_sty),
-            Paragraph(f'<font color="#FFFFFF" backColor="#b91c1c"><b>&nbsp; {dept_name} &nbsp;</b></font>', val_black), # White text on Red bg for dept highlight
+            Paragraph(f'<font color="#FFFFFF" backColor="#b91c1c"><b>&nbsp; {dept_name} &nbsp;</b></font>', val_black), 
             Paragraph('<b>Course Code :</b>', label_sty),
-            Paragraph(f'<b>{course.course_code}</b>', val_sty),
+            Paragraph(f'<b>{course_code}</b>', val_sty),
         ],
         [
             Paragraph('<b>Exam Date &amp; Session :</b>', label_sty),
             Paragraph(f'<b>{exam_date_disp} – {session_disp}</b>' if exam_date_disp else '<i>Not Scheduled</i>', val_black),
             Paragraph('<b>Course Title :</b>', label_sty),
-            Paragraph(f'<b>{course.course_title}</b>', val_black),
+            Paragraph(f'<b>{course_title}</b>', val_black),
         ],
     ]
     info_tbl = Table(info_data, colWidths=[page_w*0.18, page_w*0.37, page_w*0.15, page_w*0.30])
@@ -494,17 +571,14 @@ def ese_cover_sheet_pdf():
         
     course = Course.query.get_or_404(course_id)
 
-    print("=" * 80)
-    print("[DEBUG] PDF/API ROUTE STARTED: ese_cover_sheet_pdf")
-    print(f"[DEBUG] course_id param = {course_id}")
-    print(f"[DEBUG] course_code param = {request.args.get('course_code')}")
-    print(f"[DEBUG] Resolved Course ID = {course.id}")
-    print(f"[DEBUG] Resolved Course Code = {course.course_code}")
-    print(f"[DEBUG] Curriculum ID = {course.curriculum_id}")
-    print(f"[DEBUG] Department = {course.curriculum.department.code}")
-    print(f"[DEBUG] Regulation = {course.curriculum.regulation.name}")
-    print(f"[DEBUG] Batch = {course.curriculum.batch.label}")
-    print("=" * 80)
+    print("=" * 60)
+    print("[PDF STRICT MODE: COVER SHEET]")
+    print(f"Course ID:   {course.id}")
+    print(f"Course Code: {course.course_code}")
+    print(f"Dept:        {course.curriculum.department.code}")
+    print(f"Batch:       {course.curriculum.batch.label}")
+    print("=" * 60)
+
 
     schedule = ExamSchedule.query.filter_by(course_id=course.id).first()
     ay = AcademicYear.query.filter_by(is_current=True).first()
@@ -513,7 +587,8 @@ def ese_cover_sheet_pdf():
         for att in Attendance.query.filter_by(exam_schedule_id=schedule.id).all():
             existing[att.student_id] = att.status
 
-    # ── STRICT CourseRegistration Query ──
+    # ── High-Performance Student Fetching ──
+    # 1. Try STRICT CourseRegistration first (Official Roster)
     all_students = (
         db.session.query(Student)
         .join(CourseRegistration, CourseRegistration.student_id == Student.id)
@@ -522,16 +597,30 @@ def ese_cover_sheet_pdf():
         .all()
     )
 
-    print(f"[DEBUG] Students Loaded = {len(all_students)}")
-    for s in all_students[:20]:
-        print(
-            f"[DEBUG STUDENT] "
-            f"{s.register_number} | "
-            f"{s.department} | "
-            f"{s.batch} | "
-            f"{s.regulation}"
+    # 2. SAFE CURRICULUM FALLBACK
+    if not all_students:
+        print("=" * 60)
+        print("[PDF FALLBACK MODE: COVER SHEET]")
+        print(f"Course ID: {course.id}")
+        print(f"Course Code: {course.course_code}")
+        print("[SAFE CURRICULUM PREVIEW ACTIVATED]")
+        print("=" * 60)
+        
+        all_students = (
+            db.session.query(Student)
+            .filter(
+                Student.department == course.curriculum.department.code,
+                Student.batch == course.curriculum.batch.label,
+                Student.regulation == course.curriculum.regulation.name
+            )
+            .order_by(Student.register_number)
+            .all()
         )
-    print("=" * 80)
+
+
+    print(f"[DEBUG] Students Found: {len(all_students)}")
+    print("=" * 60)
+
 
     present_students = [s for s in all_students if existing.get(s.id, 'Present') == 'Present']
     total_present = len(present_students)
@@ -560,10 +649,15 @@ def ese_cover_sheet_pdf():
         story.append(Paragraph(f'END SEMESTER EXAMINATIONS – {(ay.semester if ay else "EVEN").upper()} SEM {ay.label if ay else "2025-26"}', ParagraphStyle('ET', fontName='Helvetica-Bold', fontSize=10, textColor=NAVY, alignment=TA_CENTER)))
         story.append(Spacer(1, 3*mm))
 
-        info1 = [[Paragraph('<b>BOARD</b>', lbl), Paragraph(':', lbl), Paragraph(course.curriculum.department.code, val2), Paragraph('<b>Course Code :</b>', lbl), Paragraph(f'<b>{course.course_code}</b>', val)]]
+        import xml.sax.saxutils as saxutils
+        dept_code = saxutils.escape(course.curriculum.department.code)
+        course_title = saxutils.escape(course.course_title)
+        course_code = saxutils.escape(course.course_code)
+
+        info1 = [[Paragraph('<b>BOARD</b>', lbl), Paragraph(':', lbl), Paragraph(dept_code, val2), Paragraph('<b>Course Code :</b>', lbl), Paragraph(f'<b>{course_code}</b>', val)]]
         story.append(Table(info1, colWidths=[page_w*0.12, page_w*0.03, page_w*0.32, page_w*0.25, page_w*0.28], style=[('VALIGN',(0,0),(-1,-1),'MIDDLE'),('BOTTOMPADDING',(0,0),(-1,-1),4)]))
         exam_str = f'{schedule.exam_date.strftime("%d.%m.%Y %a").upper()} – {schedule.session}' if schedule else 'Not Scheduled'
-        info2 = [[Paragraph('<b>Exam Date &amp; Session :</b>', lbl), Paragraph(exam_str, val2), Paragraph('<b>Course Title :</b>', lbl), Paragraph(course.course_title, val2)]]
+        info2 = [[Paragraph('<b>Exam Date &amp; Session :</b>', lbl), Paragraph(exam_str, val2), Paragraph('<b>Course Title :</b>', lbl), Paragraph(course_title, val2)]]
         story.append(Table(info2, colWidths=[page_w*0.27, page_w*0.25, page_w*0.18, page_w*0.30], style=[('VALIGN',(0,0),(-1,-1),'MIDDLE'),('BOTTOMPADDING',(0,0),(-1,-1),4)]))
         story.append(Spacer(1, 2*mm)); story.append(Paragraph('<b>Valuation Date &amp; Session :</b>', ParagraphStyle('VDL', fontName='Helvetica-Bold', fontSize=9, textColor=NAVY, alignment=TA_CENTER))); story.append(Spacer(1, 2*mm))
 
@@ -610,24 +704,22 @@ def ese_despatch_pdf():
         
     course = Course.query.get_or_404(course_id)
 
-    print("=" * 80)
-    print("[DEBUG] PDF/API ROUTE STARTED: ese_despatch_pdf")
-    print(f"[DEBUG] course_id param = {course_id}")
-    print(f"[DEBUG] course_code param = {request.args.get('course_code')}")
-    print(f"[DEBUG] Resolved Course ID = {course.id}")
-    print(f"[DEBUG] Resolved Course Code = {course.course_code}")
-    print(f"[DEBUG] Curriculum ID = {course.curriculum_id}")
-    print(f"[DEBUG] Department = {course.curriculum.department.code}")
-    print(f"[DEBUG] Regulation = {course.curriculum.regulation.name}")
-    print(f"[DEBUG] Batch = {course.curriculum.batch.label}")
-    print("=" * 80)
+    print("=" * 60)
+    print("[PDF STRICT MODE: DESPATCH]")
+    print(f"Course ID:   {course.id}")
+    print(f"Course Code: {course.course_code}")
+    print(f"Dept:        {course.curriculum.department.code}")
+    print(f"Batch:       {course.curriculum.batch.label}")
+    print("=" * 60)
+
 
     schedule = ExamSchedule.query.filter_by(course_id=course.id).first()
     ay = AcademicYear.query.filter_by(is_current=True).first()
     att_records = Attendance.query.filter_by(exam_schedule_id=schedule.id).all() if schedule else []
     existing = {att.student_id: att.status for att in att_records}
 
-    # ── STRICT CourseRegistration Query ──
+    # ── High-Performance Student Fetching ──
+    # 1. Try STRICT CourseRegistration first (Official Roster)
     all_students = (
         db.session.query(Student)
         .join(CourseRegistration, CourseRegistration.student_id == Student.id)
@@ -636,16 +728,30 @@ def ese_despatch_pdf():
         .all()
     )
 
-    print(f"[DEBUG] Students Loaded = {len(all_students)}")
-    for s in all_students[:20]:
-        print(
-            f"[DEBUG STUDENT] "
-            f"{s.register_number} | "
-            f"{s.department} | "
-            f"{s.batch} | "
-            f"{s.regulation}"
+    # 2. SAFE CURRICULUM FALLBACK
+    if not all_students:
+        print("=" * 60)
+        print("[PDF FALLBACK MODE: DESPATCH]")
+        print(f"Course ID: {course.id}")
+        print(f"Course Code: {course.course_code}")
+        print("[SAFE CURRICULUM PREVIEW ACTIVATED]")
+        print("=" * 60)
+        
+        all_students = (
+            db.session.query(Student)
+            .filter(
+                Student.department == course.curriculum.department.code,
+                Student.batch == course.curriculum.batch.label,
+                Student.regulation == course.curriculum.regulation.name
+            )
+            .order_by(Student.register_number)
+            .all()
         )
-    print("=" * 80)
+
+
+    print(f"[DEBUG] Students Found: {len(all_students)}")
+    print("=" * 60)
+
 
     present_list = [s for s in all_students if existing.get(s.id, 'Present') == 'Present']
     absent_list  = [s for s in all_students if existing.get(s.id) == 'Absent']
@@ -702,14 +808,19 @@ def ese_despatch_pdf():
         story.append(Spacer(1, 2*mm))
 
         # 3. Metadata Grid
+        import xml.sax.saxutils as saxutils
+        dept_display = saxutils.escape(dept_str)
+        course_title = saxutils.escape(course.course_title or 'N/A')
+        course_code = saxutils.escape(course.course_code or 'N/A')
+
         meta_data = [
             [
-                Paragraph('<b>Department</b>', meta_lbl), Paragraph(':', meta_lbl), Paragraph(dept_str, meta_val_b),
-                Paragraph('<b>Course Code</b>', meta_lbl), Paragraph(':', meta_lbl), Paragraph(course.course_code or 'N/A', meta_val)
+                Paragraph('<b>Department</b>', meta_lbl), Paragraph(':', meta_lbl), Paragraph(dept_display, meta_val_b),
+                Paragraph('<b>Course Code</b>', meta_lbl), Paragraph(':', meta_lbl), Paragraph(course_code, meta_val)
             ],
             [
                 Paragraph('<b>Exam Date & Session</b>', meta_lbl), Paragraph(':', meta_lbl), Paragraph(f"{exam_date_disp} – {session_disp}", meta_val_b),
-                Paragraph('<b>Course Title</b>', meta_lbl), Paragraph(':', meta_lbl), Paragraph(course.course_title or 'N/A', meta_val_b)
+                Paragraph('<b>Course Title</b>', meta_lbl), Paragraph(':', meta_lbl), Paragraph(course_title, meta_val_b)
             ],
             [
                 Paragraph('<b>Total Strength</b>', meta_lbl), Paragraph(':', meta_lbl), Paragraph(str(total), meta_val_b),
@@ -803,7 +914,15 @@ def ese_dummy_upload():
             if not any(row): continue
             regno, dummy_no, foil_no, course_code = str(row[0] or '').strip().upper(), str(row[1] or '').strip(), str(row[2] or '').strip(), str(row[3] or '').strip().upper()
             student = Student.query.filter(db.func.upper(Student.register_number) == regno).first()
-            course = Course.query.filter(db.func.upper(Course.course_code) == course_code).first()
+            
+            # Match course code within the student's curriculum scope to avoid collision
+            course = None
+            if student:
+                course = Course.query.join(Curriculum).join(Department).filter(
+                    db.func.upper(Course.course_code) == course_code,
+                    Department.code == student.department
+                ).first()
+
             schedule = ExamSchedule.query.filter_by(course_id=course.id).first() if course else None
             if student and schedule:
                 ds = DummySticker.query.filter_by(student_id=student.id, exam_schedule_id=schedule.id).first()
@@ -837,15 +956,13 @@ def ese_sticker_pdf():
 
     print("=" * 80)
     print("[DEBUG] PDF/API ROUTE STARTED: ese_sticker_pdf")
-    print(f"[DEBUG] course_id param = {course_id}")
-    print(f"[DEBUG] course_code param = {request.args.get('course_code')}")
-    print(f"[DEBUG] Resolved Course ID = {course.id}")
-    print(f"[DEBUG] Resolved Course Code = {course.course_code}")
-    print(f"[DEBUG] Curriculum ID = {course.curriculum_id}")
-    print(f"[DEBUG] Department = {course.curriculum.department.code}")
-    print(f"[DEBUG] Regulation = {course.curriculum.regulation.name}")
-    print(f"[DEBUG] Batch = {course.curriculum.batch.label}")
-    print("=" * 80)
+    print("=" * 60)
+    print("[PDF STRICT MODE: DUMMY STICKERS]")
+    print(f"Course ID:   {course.id}")
+    print(f"Course Code: {course.course_code}")
+    print(f"Dept:        {course.curriculum.department.code}")
+    print(f"Batch:       {course.curriculum.batch.label}")
+    print("=" * 60)
 
     schedule = ExamSchedule.query.filter_by(course_id=course.id).first() if course else None
     if not schedule: return jsonify({'message': 'No schedule found'}), 404
@@ -856,7 +973,8 @@ def ese_sticker_pdf():
         present_ids = [att.student_id for att in Attendance.query.filter_by(exam_schedule_id=schedule.id, status='Present').all()]
     stickers = {ds.student_id: ds for ds in DummySticker.query.filter_by(exam_schedule_id=schedule.id).all()}
 
-    # ── STRICT CourseRegistration Query ──
+    # ── High-Performance Student Fetching ──
+    # 1. Try STRICT CourseRegistration first (Official Roster)
     base_students = (
         db.session.query(Student)
         .join(CourseRegistration, CourseRegistration.student_id == Student.id)
@@ -864,17 +982,31 @@ def ese_sticker_pdf():
         .order_by(Student.register_number)
         .all()
     )
-    
-    print(f"[DEBUG] Students Loaded = {len(base_students)}")
-    for s in base_students[:20]:
-        print(
-            f"[DEBUG STUDENT] "
-            f"{s.register_number} | "
-            f"{s.department} | "
-            f"{s.batch} | "
-            f"{s.regulation}"
+
+    # 2. SAFE CURRICULUM FALLBACK
+    if not base_students:
+        print("=" * 60)
+        print("[PDF FALLBACK MODE: STICKERS]")
+        print(f"Course ID: {course.id}")
+        print(f"Course Code: {course.course_code}")
+        print("[SAFE CURRICULUM PREVIEW ACTIVATED]")
+        print("=" * 60)
+        
+        base_students = (
+            db.session.query(Student)
+            .filter(
+                Student.department == course.curriculum.department.code,
+                Student.batch == course.curriculum.batch.label,
+                Student.regulation == course.curriculum.regulation.name
+            )
+            .order_by(Student.register_number)
+            .all()
         )
-    print("=" * 80)
+
+    
+    print(f"[DEBUG] Students Found: {len(base_students)}")
+    print("=" * 60)
+
     eligible = [s for s in base_students if (present_ids is None or s.id in present_ids) and s.id in stickers]
     if not eligible: return jsonify({'message': 'No eligible students found'}), 404
 

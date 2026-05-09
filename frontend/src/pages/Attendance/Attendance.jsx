@@ -592,8 +592,19 @@ export default function Attendance() {
 
       {/* Empty state */}
       {!loading && courseInfo && students.length === 0 && (
-        <div className="card" style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>
-          No students found for semester {courseInfo.semester}.
+        <div className="card" style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+          <div>No students found for semester {courseInfo.semester}.</div>
+          <button 
+            className="btn btn-gold" 
+            onClick={handleAutoEnroll}
+            disabled={enrolling}
+            style={{ width: 'fit-content' }}
+          >
+            {enrolling ? 'Enrolling...' : 'Auto-Enroll Batch Students'}
+          </button>
+          <p style={{ fontSize: '0.8rem', marginTop: '0.5rem' }}>
+            Click above to automatically register all students from this department and batch for this course.
+          </p>
         </div>
       )}
     </div>
